@@ -1121,14 +1121,14 @@
         "InvalidUsernameEmail": "Invalid username or e-mail address.",
         "InvalidNonceOrHeadersOrReferrer": "Form security failed. Please reload the form and check that your cookies are enabled. If you use a proxy server, you must %s configure Piwik to accept the proxy header%s that forwards the Host header. Also, check that your Referrer header is sent correctly.",
         "InvalidOrExpiredToken": "Token is invalid or has expired.",
-        "MailTopicPasswordChange": "Confirm Password Change",
-        "MailPasswordChangeBody": "Hi %1$s,\n\nA password reset request was received from %2$s. To confirm this password change so you can login with your new credentials, visit the following link:\n\n%3$s\n\nNote: this token will expire in 24 hours.\n\nAnd thank you for using Piwik!",
+        "MailPasswordChangeBody2": "Hi %1$s,\n\nA password reset request was received from %2$s. To reset your password, visit the following link:\n\n%3$s\n\nNote: this token will expire in 24 hours.\n\nAnd thank you for using Piwik!",
         "ConfirmationLinkSent": "A confirmation link has been sent to your inbox. Check your e-mail and visit this link to authorize your password change request.",
         "PasswordChanged": "Your password has been changed.",
         "ContactAdmin": "Possible reason: your host may have disabled the mail() function. <br \/>Please contact your Piwik administrator.",
         "ExceptionPasswordMD5HashExpected": "The password parameter is expected to be a MD5 hash of the password.",
         "ExceptionInvalidSuperUserAuthenticationMethod": "The Super User cannot be authenticated using the '%s' mechanism.",
-        "ResetPasswordInstructions": "Enter a new password for your account."
+        "ResetPasswordInstructions": "Enter a new password for your account.",
+        "BeginResetPasswordInstructions": "Enter your username or email to begin."
     },
     "Mobile": {
         "Account": "Account",

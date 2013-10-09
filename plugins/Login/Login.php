@@ -142,9 +142,7 @@ class Login extends \Piwik\Plugin
     public static function savePasswordResetInfo($login, $password)
     {
         $optionName = self::getPasswordResetInfoOptionName($login);
-        $optionData = UsersManager::getPasswordHash($password);
-
-        Option::set($optionName, $optionData);
+        Option::set($optionName, 'ignore');
     }
 
     /**

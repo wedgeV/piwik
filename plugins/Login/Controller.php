@@ -73,7 +73,7 @@ class Controller extends \Piwik\Controller
      * @internal param string $currentUrl Current URL
      * @return void
      */
-    function login($messageNoAccess = null, $infoMessage = false)
+    public function login($messageNoAccess = null, $infoMessage = false)
     {
         self::checkForceSslLogin();
 
@@ -84,7 +84,7 @@ class Controller extends \Piwik\Controller
                 $login = $form->getSubmitValue('form_login');
                 $password = $form->getSubmitValue('form_password');
                 $rememberMe = $form->getSubmitValue('form_rememberme') == '1';
-                $md5Password = md5($password);
+                $md5Password = UsersManager::getPasswordHash($password);
                 try {
                     $this->authenticateAndRedirect($login, $md5Password, $rememberMe);
                 } catch (Exception $e) {
@@ -196,13 +196,12 @@ class Controller extends \Piwik\Controller
     }
 
     /**
-     * Reset password action. Stores new password as hash and sends email
-     * to confirm use.
-     *
+     * Reset password action. Sends the reset password email so user can reset the password.
+     * 
      * @param none
      * @return void
      */
-    function resetPassword()
+    public function sendResetPasswordEmail()
     {
         self::checkForceSslLogin();
 
@@ -226,14 +225,69 @@ class Controller extends \Piwik\Controller
             $formErrors = $formData['errors'];
         }
 
-        $view = new View('@Login/resetPassword');
+        $view = new View('@Login/sendResetPasswordEmail');
         $view->infoMessage = $infoMessage;
         $view->formErrors = $formErrors;
         echo $view->render();
     }
 
     /**
-     * Saves password reset info and sends confirmation email.
+     * Displays the 'set reset password' form. Users visit this action from a link supplied in an email.
+     * 
+     * @param none
+     * @return void
+     */
+    public function resetPassword()
+    {
+        self::checkForceSslLogin();
+
+        $messageNoAccess = null;
+        $infoMessage = null;
+        $formErrors = null;
+
+        $form = new FormSetNewPassword();
+        if ($form->validate()) {
+            $nonce = $form->getSubmitValue('form_nonce');
+            if (Nonce::verifyNonce('Login.login', $nonce)) {
+                $password = $form->getSubmitValue('form_password');
+                $rememberMe = $form->getSubmitValue('form_rememberme') == '1';
+
+                $errorMessage = $this->changeUserPassword($password);
+                if (is_null($errorMessage)) {
+                    try {
+                        $login = Common::getRequestVar('login');
+                        $passwordHash = UsersManager::getPasswordHash($password);
+
+                        $this->authenticateAndRedirect($login, , $rememberMe);
+                        return;
+                    } catch (Exception $e) {
+                        $messageNoAccess = $e->getMessage();
+                    }
+                } else {
+                    $messageNoAccess = $errorMessage;
+                }
+            } else {
+                $messageNoAccess = $this->getMessageExceptionNoAccess();
+            }
+        } else {
+            $infoMessage = Piwik::translate('Login_ResetPasswordInstructions');
+        }
+    
+        $view = new View('@Login/login');
+        $view->showResetPasswordForm = true;
+        $view->showLostYourPasswordLink = false;
+        $view->AccessErrorString = $messageNoAccess;
+        $view->infoMessage = nl2br($infoMessage);
+        $view->login = Common::getRequestVar('login');
+        $view->resetToken = Common::getRequestVar('resetToken');
+        $view->addForm($form);
+        $this->configureView($view);
+        self::setHostValidationVariablesView($view);
+        echo $view->render();
+    }
+
+    /**
+     * Saves password reset info and sends reset password email.
      *
      * @param QuickForm2 $form
      * @return array Error message(s) if an error occurs.
@@ -241,15 +295,6 @@ class Controller extends \Piwik\Controller
     private function resetPasswordFirstStep($form)
     {
         $loginMail = $form->getSubmitValue('form_login');
-        $token = $form->getSubmitValue('form_token');
-        $password = $form->getSubmitValue('form_password');
-
-        // check the password
-        try {
-            UsersManager::checkPassword($password);
-        } catch (Exception $ex) {
-            return array($ex->getMessage());
-        }
 
         // get the user's login
         if ($loginMail === 'anonymous') {
@@ -264,7 +309,7 @@ class Controller extends \Piwik\Controller
         $login = $user['login'];
 
         // if valid, store password information in options table, then...
-        Login::savePasswordResetInfo($login, $password);
+        Login::savePasswordResetInfo($login);
 
         // ... send email with confirmation link
         try {
@@ -294,17 +339,17 @@ class Controller extends \Piwik\Controller
 
         $ip = IP::getIpFromHeader();
         $url = Url::getCurrentUrlWithoutQueryString()
-            . "?module=Login&action=confirmResetPassword&login=" . urlencode($login)
+            . "?module=Login&action=resetPassword&login=" . urlencode($login)
             . "&resetToken=" . urlencode($resetToken);
 
         // send email with new password
         $mail = new Mail();
         $mail->addTo($email, $login);
-        $mail->setSubject(Piwik::translate('Login_MailTopicPasswordChange'));
+        $mail->setSubject(Piwik::translate('General_ChangePassword'));
         $bodyText = str_replace(
                 '\n',
                 "\n",
-                sprintf(Piwik::translate('Login_MailPasswordChangeBody'), $login, $ip, $url)
+                sprintf(Piwik::translate('Login_MailPasswordChangeBody2'), $login, $ip, $url)
             ) . "\n";
         $mail->setBodyText($bodyText);
 
@@ -315,10 +360,9 @@ class Controller extends \Piwik\Controller
     }
 
     /**
-     * Password reset confirmation action. Finishes the password reset process.
-     * Users visit this action from a link supplied in an email.
+     * Password change. Finishes the password reset process.
      */
-    public function confirmResetPassword()
+    private function changeUserPassword($resetPassword)
     {
         $errorMessage = null;
 
@@ -333,26 +377,22 @@ class Controller extends \Piwik\Controller
             }
 
             // check that the reset token is valid
-            $resetPassword = Login::getPasswordToResetTo($login);
-            if ($resetPassword === false || !self::isValidToken($resetToken, $user)) {
+            if (!self::isValidToken($resetToken, $user)) {
                 throw new Exception(Piwik::translate('Login_InvalidOrExpiredToken'));
             }
 
+            // make sure password is good enough
+            UsersManager::checkPassword($resetPassword);
+
             // reset password of user
-            $this->setNewUserPassword($user, $resetPassword);
+            $this->setNewUserPassword($user, UsersManager::getPasswordHash($resetPassword));
+
+            Login::removePasswordResetInfo();
         } catch (Exception $ex) {
             $errorMessage = $ex->getMessage();
         }
 
-        if (is_null($errorMessage)) // if success, show login w/ success message
-        {
-            $this->redirectToIndex('Login', 'resetPasswordSuccess');
-            return;
-        } else {
-            // show login page w/ error. this will keep the token in the URL
-            $this->login($errorMessage);
-            return;
-        }
+        return $errorMessage;
     }
 
     /**
@@ -378,16 +418,6 @@ class Controller extends \Piwik\Controller
             API::getInstance()->updateUser(
                 $user['login'], $passwordHash, $email = false, $alias = false, $isPasswordHashed = true);
         }
-    }
-
-    /**
-     * The action used after a password is successfully reset. Displays the login
-     * screen with an extra message. A separate action is used instead of returning
-     * the HTML in confirmResetPassword so the resetToken won't be in the URL.
-     */
-    public function resetPasswordSuccess()
-    {
-        $this->login($errorMessage = null, $infoMessage = Piwik::translate('Login_PasswordChanged'));
     }
 
     /**

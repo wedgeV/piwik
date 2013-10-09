@@ -19,22 +19,15 @@ use Piwik\QuickForm2;
  */
 class FormResetPassword extends QuickForm2
 {
-    function __construct($id = 'resetpasswordform', $method = 'post', $attributes = null, $trackSubmit = false)
+    public function __construct($id = 'resetpasswordform', $method = 'post', $attributes = null, $trackSubmit = false)
     {
         parent::__construct($id, $method, $attributes, $trackSubmit);
     }
 
-    function init()
+    public function init()
     {
         $this->addElement('text', 'form_login')
             ->addRule('required', Piwik::translate('General_Required', Piwik::translate('General_Username')));
-
-        $password = $this->addElement('password', 'form_password');
-        $password->addRule('required', Piwik::translate('General_Required', Piwik::translate('General_Password')));
-
-        $passwordBis = $this->addElement('password', 'form_password_bis');
-        $passwordBis->addRule('required', Piwik::translate('General_Required', Piwik::translate('Login_PasswordRepeat')));
-        $passwordBis->addRule('eq', Piwik::translate('Login_PasswordsDoNotMatch'), $password);
 
         $this->addElement('hidden', 'form_nonce');
 

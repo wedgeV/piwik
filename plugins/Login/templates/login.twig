@@ -94,6 +94,34 @@
                     <p class="message">{{ infoMessage|raw }}</p>
                 {% endif %}
             </div>
+            {% if showResetPasswordForm|default(false) %}
+            <form id="reset_password_form" method="post" action="index.php">
+                <fieldset class="inputs">
+                    <input type="password" name="form_password" id="reset_form_password" class="input" value="" size="20"
+                           tabindex="20"
+                           placeholder="{{ 'General_Password'|translate }}"/>
+
+                    <input type="password" name="form_password_bis" id="reset_form_password_bis" class="input" value=""
+                           size="20" tabindex="30"
+                           placeholder="{{ 'Login_PasswordRepeat'|translate }}"/>
+
+                    <input name="form_rememberme" type="checkbox" id="login_form_rememberme" value="1" tabindex="90"
+                           {% if form_data.form_rememberme.value %}checked="checked" {% endif %}/>
+                    <label for="login_form_rememberme">{{ 'Login_RememberMe'|translate }}</label>
+                </fieldset>
+
+                <fieldset class="actions">
+                    <input class="submit" id='reset_form_submit' type="submit" value="{{ 'General_ChangePassword'|translate }}"
+                           tabindex="100"/>
+                </fieldset>
+
+                <input type="hidden" name="module" value="Login"/>
+                <input type="hidden" name="action" value="resetPassword"/>
+                <input type="hidden" name="login" value="{{ login }}"/>
+                <input type="hidden" name="resetToken" value="{{ resetToken }}"/>
+                <input type="hidden" name="form_nonce" id="login_form_nonce" value="{{ nonce }}"/>
+            </form>
+            {% else %}
             <form {{ form_data.attributes|raw }}>
                 <h1>{{ 'Login_LogIn'|translate }}</h1>
                 <fieldset class="inputs">
@@ -114,36 +142,31 @@
                            tabindex="100"/>
                 </fieldset>
             </form>
-            <form id="reset_form" style="display:none;">
+            <form id="begin_reset_form" style="display:none;">
                 <fieldset class="inputs">
-                    <input type="text" name="form_login" id="reset_form_login" class="input" value="" size="20"
+                    <input type="text" name="form_login" id="begin_reset_form_login" class="input" value="" size="20"
                            tabindex="10"
                            placeholder="{{ 'Login_LoginOrEmail'|translate }}"/>
-                    <input type="hidden" name="form_nonce" id="reset_form_nonce" value="{{ nonce }}"/>
-
-                    <input type="password" name="form_password" id="reset_form_password" class="input" value="" size="20"
-                           tabindex="20"
-                           placeholder="{{ 'General_Password'|translate }}"/>
-
-                    <input type="password" name="form_password_bis" id="reset_form_password_bis" class="input" value=""
-                           size="20" tabindex="30"
-                           placeholder="{{ 'Login_PasswordRepeat'|translate }}"/>
+                    <input type="hidden" name="form_nonce" id="begin_reset_form_nonce" value="{{ nonce }}"/>
                 </fieldset>
 
                 <fieldset class="actions">
                     <span class="loadingPiwik" style="display:none;">
                         <img alt="Loading" src="plugins/Zeitgeist/images/loading-blue.gif"/>
                     </span>
-                    <input class="submit" id='reset_form_submit' type="submit"
-                           value="{{ 'General_ChangePassword'|translate }}" tabindex="100"/>
+                    <input class="submit" id='begin_reset_form_submit' type="submit"
+                           value="Go" tabindex="100"/> <!-- TODO: translate -->
                 </fieldset>
 
                 <input type="hidden" name="module" value="Login"/>
-                <input type="hidden" name="action" value="resetPassword"/>
+                <input type="hidden" name="action" value="sendResetPasswordEmail"/>
             </form>
+            {% endif %}
             <p id="nav">
+                {% if showLostYourPasswordLink is not defined or showLostYourPasswordLink %}
                 <a id="login_form_nav" href="#"
                    title="{{ 'Login_LostYourPassword'|translate }}">{{ 'Login_LostYourPassword'|translate }}</a>
+                {% endif %}
                 <a id="alternate_reset_nav" href="#" style="display:none;"
                    title="{'Login_LogIn'|translate}">{{ 'Login_LogIn'|translate }}</a>
                 <a id="reset_form_nav" href="#" style="display:none;"
@@ -155,7 +178,7 @@
                 </p>
             {% endif %}
             <div id="lost_password_instructions" style="display:none;">
-                <p class="message">{{ 'Login_ResetPasswordInstructions'|translate }}</p>
+                <p class="message">{{ 'Login_BeginResetPasswordInstructions'|translate }}</p>
             </div>
         {% endif %}
     </section>

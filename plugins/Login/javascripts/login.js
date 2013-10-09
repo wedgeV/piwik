@@ -44,12 +44,12 @@
         // 'lost your password?' on click
         $('#login_form_nav').click(function (e) {
             e.preventDefault();
-            switchForm('login_form', 'reset_form', $('#lost_password_instructions').html());
+            switchForm('login_form', 'begin_reset_form', $('#lost_password_instructions').html());
             return false;
         });
 
         // 'cancel' on click
-        $('#reset_form_nav,#alternate_reset_nav').click(function (e) {
+        $('#begin_reset_form_nav,#alternate_reset_nav').click(function (e) {
             e.preventDefault();
             $('#alternate_reset_nav').hide();
             switchForm('reset_form', 'login_form', '');
@@ -57,16 +57,17 @@
         });
 
         // password reset on submit
-        $('#reset_form_submit').click(function (e) {
+        $('#begin_reset_form_submit').click(function (e) {
             e.preventDefault();
 
             var ajaxDone = function (response) {
                 $('.loadingPiwik').hide();
 
-                var isSuccess = response.indexOf('id="login_error"') === -1,
+                var $response = $(response),
+                    isSuccess = $('.message_error', $response).length === 0,
                     fadeOutIds = '#message_container';
                 if (isSuccess) {
-                    fadeOutIds += ',#reset_form,#reset_form_nav';
+                    fadeOutIds += ',#begin_reset_form,#begin_reset_form_nav';
                 }
 
                 $(fadeOutIds).fadeOut(300, function () {
@@ -88,7 +89,7 @@
                 async: true,
                 error: function () { ajaxDone('<div id="login_error"><strong>HTTP Error</strong></div>'); },
                 success: ajaxDone,	// Callback when the request succeeds
-                data: $('#reset_form').serialize()
+                data: $('#begin_reset_form').serialize()
             });
 
             return false;
