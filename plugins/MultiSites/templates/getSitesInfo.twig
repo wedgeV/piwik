@@ -6,38 +6,56 @@
         {% include "@CoreHome/_periodSelect.twig" %}
     </div>
 
-<div id="multisites">
+<div id="multisites" ng-controller="MultiSitesCtrl">
     <div id="main">
         <script type="text/javascript">
-            var allSites = [];
-            var params = [];
-            {% for i,site in sitesData %}
-            allSites[{{ i }}] = new setRowData({{ site.idsite }},
-                {{ site.visits }},
-                {{ site.pageviews }},
-                {% if site.revenue is empty %}0{% else %}{{ site.revenue|raw }}{% endif %},
-                '{{ site.name|e("js") }}',
-                '{{ site.main_url|e("js") }}',
-                '{% if site.visits_evolution is defined %}{{ site.visits_evolution|replace({",":"."}) }}{% endif %}',
-                '{% if site.pageviews_evolution is defined %}{{ site.pageviews_evolution|replace({",":"."}) }}{% endif %}',
-                '{% if site.revenue_evolution is defined %}{{ site.revenue_evolution|replace({",":"."})|raw }}{% endif %}'
-            );
-            {% endfor %}
-            params['period'] = '{{ period }}';
-            params['date'] = '{{ date }}';
-            params['evolutionBy'] = '{{ evolutionBy }}';
-            params['mOrderBy'] = '{{ orderBy }}';
-            params['order'] = '{{ order }}';
-            params['limit'] = '{{ limit }}';
-            params['page'] = 1;
-            params['prev'] = "{{ 'General_Previous'|translate|e("js") }}";
-            params['next'] = "{{ 'General_Next'|translate|e("js") }}";
+            function MultiSitesCtrl($scope)
+            {
+                var allSites = [];
+                {% for i,site in sitesData %}
+                allSites[{{ i }}] = new setRowData({{ site.idsite }},
+                    {{ site.visits }},
+                    {{ site.pageviews }},
+                    {% if site.revenue is empty %}0{% else %}{{ site.revenue|raw }}{% endif %},
+                    '{{ site.name|e("js") }}',
+                    '{{ site.main_url|e("js") }}',
+                    '{% if site.visits_evolution is defined %}{{ site.visits_evolution|replace({",":"."}) }}{% endif %}',
+                    '{% if site.pageviews_evolution is defined %}{{ site.pageviews_evolution|replace({",":"."}) }}{% endif %}',
+                    '{% if site.revenue_evolution is defined %}{{ site.revenue_evolution|replace({",":"."})|raw }}{% endif %}'
+                );
+                {% endfor %}
 
-            {% set row %}
-            {% include "@MultiSites/_siteRow.twig" %}
-            {% endset %}
-            params['row'] = '{{ row|e("js") }}';
-            params['dateSparkline'] = '{{ dateSparkline }}';
+                $scope.reverse = '{{ order }}' == 'desc' ? true : false;
+                $scope.searchedWebsites = allSites;
+                $scope.websites = allSites;
+                $scope.predicate = '{{ orderBy }}';
+                $scope.currentPage = 0;
+                $scope.pageSize = {{ limit }} / 5;
+                $scope.evolutionSelector = '{{ evolutionBy }}';
+                $scope.numberOfPages=function(){
+                    return Math.ceil($scope.searchedWebsites.length/$scope.pageSize);
+                }
+                $scope.sparklineImage=function(website){
+                    var append = '';
+                    var token_auth = broadcast.getValueFromUrl('token_auth');
+                    if (token_auth.length) {
+                        append = '&token_auth=' + token_auth;
+                    }
+
+                    return '?module=MultiSites&action=getEvolutionGraph&period={{ period }}&date={{ dateSparkline }}&evolutionBy=' +$scope.evolutionSelector + '&columns=' + $scope.evolutionSelector + '&idSite=' + website.idsite + '&idsite=' + website.idsite + '&viewDataTable=sparkline' + append + '&colors=' + encodeURIComponent(JSON.stringify(piwik.getSparklineColors()));
+                }
+                $scope.start=function(){
+                    return Math.ceil($scope.currentPage*$scope.pageSize);
+                }
+                $scope.end=function(){
+                    var end = $scope.start() + $scope.pageSize;
+                    if (end > $scope.searchedWebsites.length) {
+                        return $scope.searchedWebsites.length
+                    }
+                    return end;
+                }
+
+            }
         </script>
 
         <div class="centerLargeDiv">
@@ -53,20 +71,20 @@
             <table id="mt" class="dataTable" cellspacing="0">
                 <thead>
                 <tr>
-                    <th id="names" class="label" onClick="params = setOrderBy(this,allSites, params, 'names');">
+                    <th id="names" class="label" ng-click="predicate = 'name'; reverse=!reverse">
                         <span>{{ 'General_Website'|translate }}</span>
                         <span class="arrow {% if evolutionBy=='names' %}multisites_{{ order }}{% endif %}"></span>
                     </th>
-                    <th id="visits" class="multisites-column" style="width: 100px;" onClick="params = setOrderBy(this,allSites, params, 'visits');">
+                    <th id="visits" class="multisites-column" style="width: 100px;" ng-click="predicate = 'visits'; reverse=!reverse">
                         <span>{{ 'General_ColumnNbVisits'|translate }}</span>
                         <span class="arrow {% if evolutionBy=='visits' %}multisites_{{ order }}{% endif %}"></span>
                     </th>
-                    <th id="pageviews" class="multisites-column" style="width: 110px;" onClick="params = setOrderBy(this,allSites, params, 'pageviews');">
+                    <th id="pageviews" class="multisites-column" style="width: 110px;" ng-click="predicate = 'pageviews'; reverse=!reverse">
                         <span>{{ 'General_ColumnPageviews'|translate }}</span>
                         <span class="arrow {% if evolutionBy=='pageviews' %}multisites_{{ order }}{% endif %}"></span>
                     </th>
                     {% if displayRevenueColumn %}
-                        <th id="revenue" class="multisites-column" style="width: 110px;" onClick="params = setOrderBy(this,allSites, params, 'revenue');">
+                        <th id="revenue" class="multisites-column" style="width: 110px;" ng-click="predicate = 'revenue'; reverse=!reverse">
                             <span>{{ 'General_ColumnRevenue'|translate }}</span>
                             <span class="arrow {% if evolutionBy=='revenue' %}multisites_{{ order }}{% endif %}"></span>
                         </th>
@@ -74,9 +92,9 @@
                     <th id="evolution" style=" width:350px;" colspan="{% if show_sparklines %}2{% else %}1{% endif %}">
                         <span class="arrow "></span>
                         <span class="evolution" style="cursor:pointer;"
-                              onClick="params = setOrderBy(this,allSites, params, $('#evolution_selector').val() + 'Summary');"> {{ 'MultiSites_Evolution'|translate }}</span>
-                        <select class="selector" id="evolution_selector"
-                                onchange="params['evolutionBy'] = $('#evolution_selector').val(); switchEvolution(params);">
+                              ng-click="predicate = evolutionSelector+'SummaryValue'; reverse=!reverse"> {{ 'MultiSites_Evolution'|translate }}</span>
+                        <select class="selector" id="evolution_selector" ng-model="evolutionSelector"
+                                ng-change="predicate = evolutionSelector+'SummaryValue'">
                             <option value="visits" {% if evolutionBy == 'visits' %} selected {% endif %}>{{ 'General_ColumnNbVisits'|translate }}</option>
                             <option value="pageviews" {% if evolutionBy == 'pageviews' %} selected {% endif %}}>{{ 'General_ColumnPageviews'|translate }}</option>
                             {% if displayRevenueColumn %}
@@ -88,6 +106,9 @@
                 </thead>
 
                 <tbody id="tb">
+                <tr ng-repeat="website in searchedWebsites | orderBy:predicate:reverse | startFrom:currentPage*pageSize | limitTo:pageSize">
+                    {% include "@MultiSites/_siteRow.twig" %}
+                </tr>
                 </tbody>
 
                 <tfoot>
@@ -100,21 +121,32 @@
                         </td>
                     </tr>
                 {% endif %}
+
+                <tr>
+                    <td colspan="8" class="clean" style="text-align: center;">
+                        <input type="text" ng-change="searchedWebsites = (websites | filter:searchWebsite);currentPage=0" ng-model="searchWebsite" placeholder="Search for websites">
+                    </td>
+                </tr>
+
                 <tr row_id="last">
-                    <td colspan="8" class="clean" style="padding: 20px;">
-                        <span id="prev" class="pager" style="padding-right: 20px;"></span>
+                    <td colspan="8" class="clean" style="padding: 20px;" ng-hide="numberOfPages() <= 1">
+                        <span id="prev" class="pager" style="padding-right: 20px;" ng-hide="currentPage == 0" ng-click="currentPage=currentPage-1">
+                            <span style="cursor:pointer;">&#171; {{ 'General_Previous'|translate|e("js") }}</span>
+                        </span>
                         <span class="dataTablePages">
                             <span id="counter">
+                                <span>!?start()?! - !?end()?! of !?searchedWebsites.length?!</span>
                             </span>
                         </span>
-                        <span id="next" class="clean" style="padding-left: 20px;"></span>
+                        <span id="next" class="clean" style="padding-left: 20px;" ng-hide="currentPage >= websites.length/pageSize - 1" ng-click="currentPage=currentPage+1">
+                            <span style="cursor:pointer;" class="pointer">{{ 'General_Next'|translate|e("js") }} &#187;</span>
+                        </span>
                     </td>
                 </tr>
                 </tfoot>
             </table>
         </div>
         <script type="text/javascript">
-            prepareRows(allSites, params, '{{ orderBy }}');
 
             {% if autoRefreshTodayReport %}
             piwikHelper.refreshAfter({{ autoRefreshTodayReport }} * 1000);

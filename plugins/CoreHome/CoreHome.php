@@ -71,6 +71,7 @@ class CoreHome extends \Piwik\Plugin
         $jsFiles[] = "libs/jquery/jquery.mousewheel.js";
         $jsFiles[] = "libs/jquery/mwheelIntent.js";
         $jsFiles[] = "libs/javascript/sprintf.js";
+        $jsFiles[] = "libs/angularjs/angular.js";
         $jsFiles[] = "plugins/Zeitgeist/javascripts/piwikHelper.js";
         $jsFiles[] = "plugins/Zeitgeist/javascripts/ajaxHelper.js";
         $jsFiles[] = "plugins/CoreHome/javascripts/require.js";
@@ -92,6 +93,7 @@ class CoreHome extends \Piwik\Plugin
         $jsFiles[] = "plugins/CoreHome/javascripts/color_manager.js";
         $jsFiles[] = "plugins/CoreHome/javascripts/notification.js";
         $jsFiles[] = "plugins/CoreHome/javascripts/notification_parser.js";
+        $jsFiles[] = "plugins/CoreHome/javascripts/angularPiwikApp.js";
     }
 
     public function getClientSideTranslationKeys(&$translationKeys)
