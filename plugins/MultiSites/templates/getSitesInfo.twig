@@ -73,24 +73,24 @@
                 <tr>
                     <th id="names" class="label" ng-click="predicate = 'name'; reverse=!reverse">
                         <span>{{ 'General_Website'|translate }}</span>
-                        <span class="arrow {% if evolutionBy=='names' %}multisites_{{ order }}{% endif %}"></span>
+                        <span ng-class="{multisites_asc: !reverse && 'name' == predicate, multisites_desc: reverse && 'name' == predicate}" class="arrow"></span>
                     </th>
                     <th id="visits" class="multisites-column" style="width: 100px;" ng-click="predicate = 'visits'; reverse=!reverse">
                         <span>{{ 'General_ColumnNbVisits'|translate }}</span>
-                        <span class="arrow {% if evolutionBy=='visits' %}multisites_{{ order }}{% endif %}"></span>
+                        <span ng-class="{multisites_asc: !reverse && 'visits' == predicate, multisites_desc: reverse && 'visits' == predicate}" class="arrow"></span>
                     </th>
                     <th id="pageviews" class="multisites-column" style="width: 110px;" ng-click="predicate = 'pageviews'; reverse=!reverse">
                         <span>{{ 'General_ColumnPageviews'|translate }}</span>
-                        <span class="arrow {% if evolutionBy=='pageviews' %}multisites_{{ order }}{% endif %}"></span>
+                        <span ng-class="{multisites_asc: !reverse && 'pageviews' == predicate, multisites_desc: reverse && 'pageviews' == predicate}" class="arrow"></span>
                     </th>
                     {% if displayRevenueColumn %}
                         <th id="revenue" class="multisites-column" style="width: 110px;" ng-click="predicate = 'revenue'; reverse=!reverse">
                             <span>{{ 'General_ColumnRevenue'|translate }}</span>
-                            <span class="arrow {% if evolutionBy=='revenue' %}multisites_{{ order }}{% endif %}"></span>
+                            <span ng-class="{multisites_asc: !reverse && 'revenue' == predicate, multisites_desc: reverse && 'revenue' == predicate}" class="arrow"></span>
                         </th>
                     {% endif %}
                     <th id="evolution" style=" width:350px;" colspan="{% if show_sparklines %}2{% else %}1{% endif %}">
-                        <span class="arrow "></span>
+                        <span class="arrow" ng-class="{multisites_asc: !reverse && evolutionSelector+'SummaryValue' == predicate, multisites_desc: reverse && evolutionSelector+'SummaryValue' == predicate}"></span>
                         <span class="evolution" style="cursor:pointer;"
                               ng-click="predicate = evolutionSelector+'SummaryValue'; reverse=!reverse"> {{ 'MultiSites_Evolution'|translate }}</span>
                         <select class="selector" id="evolution_selector" ng-model="evolutionSelector"
