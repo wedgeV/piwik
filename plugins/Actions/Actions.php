@@ -18,6 +18,7 @@ use Piwik\Menu\MenuMain;
 use Piwik\MetricsFormatter;
 use Piwik\Piwik;
 use Piwik\Plugin\ViewDataTable;
+use Piwik\Plugin\Visualization;
 use Piwik\Plugins\CoreVisualizations\Visualizations\HtmlTable;
 use Piwik\Site;
 use Piwik\WidgetsList;
@@ -696,28 +697,29 @@ class Actions extends \Piwik\Plugin
 
     public function configureViewForEntryPageUrls(ViewDataTable $view)
     {
-        // link to the page, not just the report, but only if not a widget
-        $widget    = Common::getRequestVar('widget', false);
+            // link to the page, not just the report, but only if not a widget
+            $widget    = Common::getRequestVar('widget', false);
 
-        $view->config->self_url = Request::getCurrentUrlWithoutGenericFilters(array(
-            'module' => 'Actions',
-            'action' => $widget === false ? 'indexEntryPageUrls' : 'getEntryPageUrls'
-        ));
+            $view->config->self_url = Request::getCurrentUrlWithoutGenericFilters(array(
+                'module' => 'Actions',
+                'action' => $widget === false ? 'indexEntryPageUrls' : 'getEntryPageUrls'
+            ));
 
-        $view->config->addTranslations(array(
-            'label'              => Piwik::translate('Actions_ColumnEntryPageURL'),
-            'entry_bounce_count' => Piwik::translate('General_ColumnBounces'),
-            'entry_nb_visits'    => Piwik::translate('General_ColumnEntrances'))
-        );
+            $view->config->addTranslations(array(
+                'label'              => Piwik::translate('Actions_ColumnEntryPageURL'),
+                'entry_bounce_count' => Piwik::translate('General_ColumnBounces'),
+                'entry_nb_visits'    => Piwik::translate('General_ColumnEntrances'))
+            );
 
-        $view->config->title = Piwik::translate('Actions_SubmenuPagesEntry');
-        $view->config->addRelatedReport('Actions.getEntryPageTitles', Piwik::translate('Actions_EntryPageTitles'));
-        $view->config->columns_to_display = array('label', 'entry_nb_visits', 'entry_bounce_count', 'bounce_rate');
-        $view->requestConfig->filter_sort_column = 'entry_nb_visits';
-        $view->requestConfig->filter_sort_order  = 'desc';
+            $view->config->title = Piwik::translate('Actions_SubmenuPagesEntry');
+            $view->config->addRelatedReport('Actions.getEntryPageTitles', Piwik::translate('Actions_EntryPageTitles'));
+            $view->config->columns_to_display = array('label', 'entry_nb_visits', 'entry_bounce_count', 'bounce_rate');
+            $view->requestConfig->filter_sort_column = 'entry_nb_visits';
+            $view->requestConfig->filter_sort_order  = 'desc';
+            $view->config->enable_search = false;
 
-        $this->addPageDisplayProperties($view);
-        $this->addBaseDisplayProperties($view);
+            $this->addPageDisplayProperties($view);
+            $this->addBaseDisplayProperties($view);
     }
 
     public function configureViewForExitPageUrls(ViewDataTable $view)

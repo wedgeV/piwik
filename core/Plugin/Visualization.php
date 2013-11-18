@@ -23,6 +23,8 @@ use Piwik\Piwik;
 use Piwik\Plugins\PrivacyManager\PrivacyManager;
 use Piwik\View;
 use Piwik\ViewDataTable\Manager as ViewDataTableManager;
+use Piwik\ViewDataTable\Visualization\RequestConfig as VisRequestConfig;
+use Piwik\ViewDataTable\Visualization\Config as VisConfig;
 
 /**
  * Base class for all DataTable visualizations. A Visualization is a special kind of ViewDataTable that comes with some
@@ -31,6 +33,9 @@ use Piwik\ViewDataTable\Manager as ViewDataTableManager;
  *
  * TODO: must be more in depth
  * @api
+ *
+ * @property \Piwik\ViewDataTable\Visualization\Config $config
+ * @property \Piwik\ViewDataTable\Visualization\RequestConfig $requestConfig
  */
 class Visualization extends ViewDataTable
 {
@@ -107,6 +112,28 @@ class Visualization extends ViewDataTable
         $view->isWidget    = Common::getRequestVar('widget', 0, 'int');
 
         return $view;
+    }
+
+    /**
+     * Returns the default config. Custom viewDataTables can change the default config to their needs by either
+     * modifying this config or creating an own Config class that extends the default Config.
+     *
+     * @return \Piwik\ViewDataTable\Visualization\Config
+     */
+    public static function getDefaultConfig()
+    {
+        return new VisConfig();
+    }
+
+    /**
+     * Returns the default request config. Custom viewDataTables can change the default config to their needs by either
+     * modifying this config or creating an own RequestConfig class that extends the default RequestConfig.
+     *
+     * @return \Piwik\ViewDataTable\Visualization\RequestConfig
+     */
+    public static function getDefaultRequestConfig()
+    {
+        return new VisRequestConfig();
     }
 
     private function overrideSomeConfigPropertiesIfNeeded()

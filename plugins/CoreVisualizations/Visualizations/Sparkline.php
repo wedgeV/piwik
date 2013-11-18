@@ -14,6 +14,7 @@ use Exception;
 use Piwik\Common;
 use Piwik\DataTable;
 use Piwik\Plugin\ViewDataTable;
+use Piwik\Plugin\Visualization;
 
 /**
  * Reads the requested DataTable from the API and prepare data for the Sparkline view.
@@ -21,9 +22,10 @@ use Piwik\Plugin\ViewDataTable;
  * @package Piwik
  * @subpackage ViewDataTable
  */
-class Sparkline extends ViewDataTable
+class Sparkline extends Visualization
 {
     const ID = 'sparkline';
+    const TEMPLATE_FILE = "@CoreVisualizations/_dataTableViz_htmlTable.twig";
 
     /**
      * @see ViewDataTable::main()

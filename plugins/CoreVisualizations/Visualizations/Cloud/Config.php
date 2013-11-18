@@ -11,7 +11,7 @@
 
 namespace Piwik\Plugins\CoreVisualizations\Visualizations\Cloud;
 
-use Piwik\ViewDataTable\Config as VisualizationConfig;
+use Piwik\ViewDataTable\Visualization\Config as VisualizationConfig;
 
 /**
  * DataTable Visualization that derives from HtmlTable and sets show_extra_columns to true.

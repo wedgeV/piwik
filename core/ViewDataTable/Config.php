@@ -75,37 +75,15 @@ class Config
     /**
      * The list of ViewDataTable properties that are 'Client Side Properties'.
      */
-    public $clientSideProperties = array(
-        'show_limit_control'
-    );
+    public $clientSideProperties = array();
 
     /**
      * The list of ViewDataTable properties that can be overriden by query parameters.
      */
     public $overridableProperties = array(
-        'show_goals',
-        'show_exclude_low_population',
-        'show_flatten_table',
-        'show_table',
-        'show_table_all_columns',
         'show_footer',
         'show_footer_icons',
         'show_all_views_icons',
-        'show_active_view_icon',
-        'show_related_reports',
-        'show_limit_control',
-        'show_search',
-        'enable_sort',
-        'show_bar_chart',
-        'show_pie_chart',
-        'show_tag_cloud',
-        'show_export_as_rss_feed',
-        'show_ecommerce',
-        'search_recursive',
-        'show_export_as_image_icon',
-        'show_pagination_control',
-        'show_offset_information',
-        'hide_annotations_view',
         'export_limit'
     );
 
@@ -142,46 +120,12 @@ class Config
     public $footer_icons = false;
 
     /**
-     * Controls whether the buttons and UI controls around the visualization or shown or
-     * if just the visualization alone is shown.
-     */
-    public $show_visualization_only = false;
-
-    /**
-     * Controls whether the goals footer icon is shown.
-     */
-    public $show_goals = false;
-
-    /**
      * Array property mapping DataTable column names with their internationalized names.
      *
      * The default value for this property is set elsewhere. It will contain translations
      * of common metrics.
      */
     public $translations = array();
-
-    /**
-     * Controls whether the 'Exclude Low Population' option (visible in the popup that displays after
-     * clicking the 'cog' icon) is shown.
-     */
-    public $show_exclude_low_population = true;
-
-    /**
-     * Whether to show the 'Flatten' option (visible in the popup that displays after clicking the
-     * 'cog' icon).
-     */
-    public $show_flatten_table = true;
-
-    /**
-     * Controls whether the footer icon that allows users to switch to the 'normal' DataTable view
-     * is shown.
-     */
-    public $show_table = true;
-
-    /**
-     * Controls whether the 'All Columns' footer icon is shown.
-     */
-    public $show_table_all_columns = true;
 
     /**
      * Controls whether the entire view footer is shown.
@@ -211,90 +155,9 @@ class Config
     public $show_all_views_icons = true;
 
     /**
-     * Controls whether to display a tiny upside-down caret over the currently active view icon.
-     */
-    public $show_active_view_icon = true;
-
-    /**
-     * Related reports are listed below a datatable view. When clicked, the original report will
-     * change to the clicked report and the list will change so the original report can be
-     * navigated back to.
-     */
-    public $related_reports = array();
-
-    /**
-     * The report title. Used with related reports so report headings can be changed when switching
-     * reports.
-     *
-     * This must be set if related reports are added.
-     */
-    public $title = '';
-
-    /**
-     * Controls whether a report's related reports are listed with the view or not.
-     */
-    public $show_related_reports = true;
-
-    /**
      * Contains the documentation for a report.
      */
     public $documentation = false;
-
-    /**
-     * Array property containing custom data to be saved in JSON in the data-params HTML attribute
-     * of a data table div. This data can be used by JavaScript DataTable classes.
-     *
-     * e.g. array('typeReferrer' => ...)
-     */
-    public $custom_parameters = array();
-
-    /**
-     * Controls whether the limit dropdown (which allows users to change the number of data shown)
-     * is always shown or not.
-     *
-     * Normally shown only if pagination is enabled.
-     */
-    public $show_limit_control = true;
-
-    /**
-     * Controls whether the search box under the datatable is shown.
-     */
-    public $show_search = true;
-
-    /**
-     * Controls whether the user can sort DataTables by clicking on table column headings.
-     */
-    public $enable_sort = true;
-
-    /**
-     * Controls whether the footer icon that allows users to view data as a bar chart is shown.
-     */
-    public $show_bar_chart = true;
-
-    /**
-     * Controls whether the footer icon that allows users to view data as a pie chart is shown.
-     */
-    public $show_pie_chart = true;
-
-    /**
-     * Controls whether the footer icon that allows users to view data as a tag cloud is shown.
-     */
-    public $show_tag_cloud = true;
-
-    /**
-     * Controls whether the user is allowed to export data as an RSS feed or not.
-     */
-    public $show_export_as_rss_feed = true;
-
-    /**
-     * Controls whether the 'Ecoommerce Orders'/'Abandoned Cart' footer icons are shown or not.
-     */
-    public $show_ecommerce = false;
-
-    /**
-     * Stores an HTML message (if any) to display under the datatable view.
-     */
-    public $show_footer_message = false;
 
     /**
      * Array property that stores documentation for individual metrics.
@@ -306,11 +169,6 @@ class Config
     public $metrics_documentation = array();
 
     /**
-     * Row metadata name that contains the tooltip for the specific row.
-     */
-    public $tooltip_metadata_name = false;
-
-    /**
      * The URL to the report the view is displaying. Modifying this means clicking back to this report
      * from a Related Report will go to a different URL. Can be used to load an entire page instead
      * of a single report when going back to the original report.
@@ -320,47 +178,6 @@ class Config
     public $self_url = '';
 
     /**
-     * CSS class to use in the output HTML div. This is added in addition to the visualization CSS
-     * class.
-     */
-    public $datatable_css_class = false;
-
-    /**
-     * The JavaScript class to instantiate after the result HTML is obtained. This class handles all
-     * interactive behavior for the DataTable view.
-     */
-    public $datatable_js_type = 'DataTable';
-
-    /**
-     * If true, searching through the DataTable will search through all subtables.
-     */
-    public $search_recursive = false;
-
-    /**
-     * The unit of the displayed column. Valid if only one non-label column is displayed.
-     */
-    public $y_axis_unit = false;
-
-    /**
-     * Controls whether to show the 'Export as Image' footer icon.
-     */
-    public $show_export_as_image_icon = false;
-
-    /**
-     * Array of DataTable filters that should be run before displaying a DataTable. Elements
-     * of this array can either be a closure or an array with at most three elements, including:
-     * - the filter name (or a closure)
-     * - an array of filter parameters
-     * - a boolean indicating if the filter is a priority filter or not
-     *
-     * Priority filters are run before queued filters. These filters should be filters that
-     * add/delete rows.
-     *
-     * If a closure is used, the view is appended as a parameter.
-     */
-    public $filters = array();
-
-    /**
      * Contains the controller action to call when requesting subtables of the current report.
      *
      * By default, this is set to the controller action used to request the report.
@@ -368,37 +185,11 @@ class Config
     public $subtable_controller_action = '';
 
     /**
-     * Controls whether the 'prev'/'next' links are shown in the DataTable footer. These links
-     * change the 'filter_offset' query parameter, thus allowing pagination.
-     */
-    public $show_pagination_control = true;
-
-    /**
-     * Controls whether offset information (ie, '5-10 of 20') is shown under the datatable.
-     */
-    public $show_offset_information = true;
-
-    /**
-     * Controls whether annotations are shown or not.
-     */
-    public $hide_annotations_view = true;
-
-    /**
      * The filter_limit query parameter value to use in export links.
      *
      * Defaulted to the value of the `[General] API_datatable_default_limit` INI config option.
      */
     public $export_limit = '';
-
-    /**
-     * TODO
-     */
-    public $report_last_updated_message = false;
-
-    /**
-     * TODO
-     */
-    public $metadata  = array();
 
     /**
      * TODO
@@ -512,81 +303,6 @@ class Config
         }
 
         $this->columns_to_display = array_filter($columnsToDisplay);
-    }
-
-    /**
-     * @ignore
-     */
-    public function getFiltersToRun()
-    {
-        $priorityFilters     = array();
-        $presentationFilters = array();
-
-        foreach ($this->filters as $filterInfo) {
-            if ($filterInfo instanceof \Closure) {
-                $nameOrClosure = $filterInfo;
-                $parameters    = array();
-                $priority      = false;
-            } else {
-                @list($nameOrClosure, $parameters, $priority) = $filterInfo;
-            }
-
-            if ($priority) {
-                $priorityFilters[] = array($nameOrClosure, $parameters);
-            } else {
-                $presentationFilters[] = array($nameOrClosure, $parameters);
-            }
-        }
-
-        return array($priorityFilters, $presentationFilters);
-    }
-
-    /**
-     * Adds a related report to the [related_reports](#related_reports) property. If the report
-     * references the one that is currently being displayed, it will not be added to the related
-     * report list.
-     * 
-     * @param string $relatedReport The plugin and method of the report, eg, `'UserSettings.getBrowser'`.
-     * @param string $title The report's display name, eg, `'Browsers'`.
-     * @param array $queryParams Any extra query parameters to set in releated report's URL, eg,
-     *                           `array('idGoal' => 'ecommerceOrder')`.
-     */
-    public function addRelatedReport($relatedReport, $title, $queryParams = array())
-    {
-        list($module, $action) = explode('.', $relatedReport);
-
-        // don't add the related report if it references this report
-        if ($this->controllerName == $module && $this->controllerAction == $action) {
-            return;
-        }
-
-        $url = ApiRequest::getBaseReportUrl($module, $action, $queryParams);
-
-        $this->related_reports[$url] = $title;
-    }
-
-    /**
-     * Adds several related reports to the [related_reports](#related_reports) property. If
-     * any of the reports references the report that is currently being displayed, it will not
-     * be added to the list. All other reports will still be added though.
-     * 
-     * If you need to make sure the related report URL has some extra query parameters,
-     * use [addRelatedReport](#addRelatedReport).
-     * 
-     * @param array $relatedReports Array mapping report IDs with their internationalized display
-     *                              titles, eg,
-     *                              ```
-     *                              array(
-     *                                  'UserSettings.getBrowser' => 'Browsers',
-     *                                  'UserSettings.getConfiguration' => 'Configurations'
-     *                              )
-     *                              ```
-     */
-    public function addRelatedReports($relatedReports)
-    {
-        foreach ($relatedReports as $report => $title) {
-            $this->addRelatedReport($report, $title);
-        }
     }
 
     /**

@@ -13,6 +13,7 @@ namespace Piwik\Visualization;
 
 use Piwik\Common;
 use Piwik\Piwik;
+use Piwik\Plugin\Visualization;
 use Piwik\View\ViewInterface;
 use Sparkline_Line;
 
@@ -151,7 +152,7 @@ class Sparkline implements ViewInterface
     public function render()
     {
         if (self::$enableSparklineImages) {
-            $this->sparkline->Output();
+            return $this->sparkline->Output();
         }
     }
 

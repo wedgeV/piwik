@@ -125,10 +125,10 @@ abstract class ViewDataTable implements ViewInterface
         /**
          * Triggered during [ViewDataTable](#) construction. Subscribers should customize
          * the view based on the report that it is displaying.
-         * 
+         *
          * Plugins that define their own reports must subscribe to this event in order to
          * specify how the Piwik UI will display the report.
-         * 
+         *
          * **Example**
          *
          *     public function configureViewDataTable(ViewDataTable $view)
@@ -140,7 +140,7 @@ abstract class ViewDataTable implements ViewInterface
          *                 break;
          *         }
          *     }
-         * 
+         *
          * @param ViewDataTable $view The instance to configure.
          */
         Piwik::postEvent('ViewDataTable.configure', array($this));
@@ -299,9 +299,9 @@ abstract class ViewDataTable implements ViewInterface
 
         foreach ($properties as $name) {
             if (property_exists($this->requestConfig, $name)) {
-                $this->requestConfig->name = $this->getPropertyFromQueryParam($name, $this->requestConfig->$name);
+                $this->requestConfig->$name = $this->getPropertyFromQueryParam($name, $this->requestConfig->$name);
             } elseif (property_exists($this->config, $name)) {
-                $this->config->name  = $this->getPropertyFromQueryParam($name, $this->config->$name);
+                $this->config->$name  = $this->getPropertyFromQueryParam($name, $this->config->$name);
             }
         }
 
