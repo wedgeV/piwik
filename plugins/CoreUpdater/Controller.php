@@ -5,8 +5,6 @@
  * @link http://piwik.org
  * @license http://www.gnu.org/licenses/gpl-3.0.html GPL v3 or later
  *
- * @category Piwik_Plugins
- * @package CoreUpdater
  */
 namespace Piwik\Plugins\CoreUpdater;
 
@@ -34,7 +32,6 @@ use Piwik\View\OneClickDone;
 
 /**
  *
- * @package CoreUpdater
  */
 class Controller extends \Piwik\Plugin\Controller
 {
@@ -57,7 +54,7 @@ class Controller extends \Piwik\Plugin\Controller
 
     public function newVersionAvailable()
     {
-        Piwik::checkUserIsSuperUser();
+        Piwik::checkUserHasSuperUserAccess();
 
         $newVersion = $this->checkNewVersionIsAvailableOrDie();
 
@@ -67,12 +64,12 @@ class Controller extends \Piwik\Plugin\Controller
         $view->piwik_latest_version_url = self::getLatestZipUrl($newVersion);
         $view->can_auto_update = Filechecks::canAutoUpdate();
         $view->makeWritableCommands = Filechecks::getAutoUpdateMakeWritableMessage();
-        echo $view->render();
+        return $view->render();
     }
 
     public function oneClickUpdate()
     {
-        Piwik::checkUserIsSuperUser();
+        Piwik::checkUserHasSuperUserAccess();
         $this->newVersion = $this->checkNewVersionIsAvailableOrDie();
 
         SettingsServer::setMaxExecutionTime(0);
@@ -101,22 +98,18 @@ class Controller extends \Piwik\Plugin\Controller
             }
         }
 
-        // this is a magic template to trigger the Piwik_View_Update
         $view = new OneClickDone(Piwik::getCurrentUserTokenAuth());
         $view->coreError = $errorMessage;
         $view->feedbackMessages = $messages;
-        echo $view->render();
+        return $view->render();
     }
 
     public function oneClickResults()
     {
-        Request::reloadAuthUsingTokenAuth($_POST);
-        Piwik::checkUserIsSuperUser();
-
         $view = new View('@CoreUpdater/oneClickResults');
         $view->coreError = Common::getRequestVar('error', '', 'string', $_POST);
         $view->feedbackMessages = safe_unserialize(Common::unsanitizeInputValue(Common::getRequestVar('messages', '', 'string', $_POST)));
-        echo $view->render();
+        return $view->render();
     }
 
     protected function redirectToDashboardWhenNoError($updater)
@@ -271,7 +264,8 @@ class Controller extends \Piwik\Plugin\Controller
         if (!empty($language)) {
             LanguagesManager::setLanguageForSession($language);
         }
-        $this->runUpdaterAndExit();
+
+        return $this->runUpdaterAndExit();
     }
 
     protected function runUpdaterAndExit()
@@ -292,12 +286,15 @@ class Controller extends \Piwik\Plugin\Controller
 
         if (Common::isPhpCliMode()) {
             $this->doWelcomeUpdates($viewWelcome, $componentsWithUpdateFile);
-            echo $viewWelcome->render();
+            $output = $viewWelcome->render();
 
             if (!$this->coreError && Piwik::getModule() == 'CoreUpdater') {
                 $this->doExecuteUpdates($viewDone, $updater, $componentsWithUpdateFile);
-                echo $viewDone->render();
+                $output .= $viewDone->render();
             }
+
+            return $output;
+
         } else {
             if (Common::getRequestVar('updateCorePlugins', 0, 'integer') == 1) {
                 $this->warningMessages = array();
@@ -305,12 +302,12 @@ class Controller extends \Piwik\Plugin\Controller
 
                 $this->redirectToDashboardWhenNoError($updater);
 
-                echo $viewDone->render();
+                return $viewDone->render();
             } else {
                 $viewWelcome->queries = $updater->getSqlQueriesToExecute();
                 $viewWelcome->isMajor = $updater->hasMajorDbUpdate();
                 $this->doWelcomeUpdates($viewWelcome, $componentsWithUpdateFile);
-                echo $viewWelcome->render();
+                return $viewWelcome->render();
             }
         }
         exit;
@@ -365,35 +362,16 @@ class Controller extends \Piwik\Plugin\Controller
 
     private function doExecuteUpdates($view, $updater, $componentsWithUpdateFile)
     {
-        $this->loadAndExecuteUpdateFiles($updater, $componentsWithUpdateFile);
+        $result = CoreUpdater::updateComponents($updater, $componentsWithUpdateFile);
 
-        Filesystem::deleteAllCacheOnUpdate();
-
+        $this->coreError       = $result['coreError'];
+        $this->warningMessages = $result['warnings'];
+        $this->errorMessages   = $result['errors'];
+        $this->deactivatedPlugins = $result['deactivatedPlugins'];
         $view->coreError = $this->coreError;
         $view->warningMessages = $this->warningMessages;
         $view->errorMessages = $this->errorMessages;
         $view->deactivatedPlugins = $this->deactivatedPlugins;
     }
 
-    private function loadAndExecuteUpdateFiles($updater, $componentsWithUpdateFile)
-    {
-        // if error in any core update, show message + help message + EXIT
-        // if errors in any plugins updates, show them on screen, disable plugins that errored + CONTINUE
-        // if warning in any core update or in any plugins update, show message + CONTINUE
-        // if no error or warning, success message + CONTINUE
-        foreach ($componentsWithUpdateFile as $name => $filenames) {
-            try {
-                $this->warningMessages = array_merge($this->warningMessages, $updater->update($name));
-            } catch (UpdaterErrorException $e) {
-                $this->errorMessages[] = $e->getMessage();
-                if ($name == 'core') {
-                    $this->coreError = true;
-                    break;
-                } else {
-                    \Piwik\Plugin\Manager::getInstance()->deactivatePlugin($name);
-                    $this->deactivatedPlugins[] = $name;
-                }
-            }
-        }
-    }
 }

@@ -11,7 +11,7 @@ class Piwik_MockAccess
     public function __construct($access)
     {
         $this->access = $access;
-        $access->setSuperUser(true);
+        $access->setSuperUserAccess(true);
     }
 
     public function __call($name, $arguments)
@@ -46,23 +46,13 @@ class Piwik_TestingEnvironment
 
             $config->setTestEnvironment();
 
-            $pluginsToLoad = array(
-                "CorePluginsAdmin", "CoreAdminHome", "CoreHome", "Proxy", "API", "Widgetize", "Transitions",
-                "LanguagesManager", "Actions", "Dashboard", "MultiSites", "Referrers", "UserSettings", "Goals",
-                "SEO", "UserCountry", "VisitsSummary", "VisitFrequency", "VisitTime", "VisitorInterest",
-                "ExampleAPI", "ExamplePlugin", "ExampleRssWidget", "Provider", "Feedback", "Login", "UsersManager",
-                "SitesManager", "Installation", "CoreUpdater", "ScheduledReports", "UserCountryMap", "Live",
-                "CustomVariables", "PrivacyManager", "ImageGraph", "DoNotTrack", "Annotations", "MobileMessaging",
-                "Overlay", "SegmentEditor", "DevicesDetection", "DBStats", 'ExampleUI', 'AnonymizeIP'
-            );
+            $pluginsToLoad = \Piwik\Plugin\Manager::$pluginsToLoadForTests;
             $config->Plugins = array('Plugins' => $pluginsToLoad);
 
             $trackerPluginsToLoad = array(
-                'Provider', 'Goals', 'DoNotTrack', 'UserCountry', 'AnonymizeIP', 'DevicesDetection'
+                'Provider', 'Goals', 'PrivacyManager', 'UserCountry', 'DevicesDetection'
             );
             $config->Plugins_Tracker = array('Plugins_Tracker' => $trackerPluginsToLoad);
-
-            $config->superuser['email'] = 'hello@example.org';
         });
         \Piwik\Piwik::addAction('Request.dispatch', function() {
             \Piwik\Plugins\CoreVisualizations\Visualizations\Cloud::$debugDisableShuffle = true;

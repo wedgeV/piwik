@@ -5,8 +5,6 @@
  * @link http://piwik.org
  * @license http://www.gnu.org/licenses/gpl-3.0.html GPL v3 or later
  *
- * @category Piwik
- * @package Piwik
  */
 
 namespace Piwik\Tracker;
@@ -29,8 +27,6 @@ use UserAgentParser;
  * Whether a visit is NEW or KNOWN we also save the action in the DB.
  * One request to the piwik.php script is associated to one action.
  *
- * @package Piwik
- * @subpackage Tracker
  */
 class Visit implements VisitInterface
 {
@@ -91,7 +87,12 @@ class Visit implements VisitInterface
         }
 
         /**
-         * This event can be used for instance to anonymize the IP (after testing for IP exclusion).
+         * Triggered after visits are tested for exclusion so plugins can modify the IP address
+         * persisted with a visit.
+         * 
+         * This event is primarily used by the **PrivacyManager** plugin to anonymize IP addresses.
+         * 
+         * @param string &$ip The visitor's IP address.
          */
         Piwik::postEvent('Tracker.setVisitorIp', array(&$this->visitorInfo['location_ip']));
 
@@ -232,14 +233,23 @@ class Visit implements VisitInterface
 
         $this->visitorInfo['time_spent_ref_action'] = $this->getTimeSpentReferrerAction();
 
+        $this->request->overrideLocation($valuesToUpdate);
+
         // update visitorInfo
         foreach ($valuesToUpdate AS $name => $value) {
             $this->visitorInfo[$name] = $value;
         }
 
         /**
-         * This event is triggered before updating an existing visit's row. Use it to change any visitor information before
-         * the visitor is saved, or register information about an existing visitor.
+         * Triggered before a [visit entity](/guides/persistence-and-the-mysql-backend#visits) is updated when
+         * tracking an action for an existing visit.
+         * 
+         * This event can be used to modify the visit properties that will be updated before the changes
+         * are persisted.
+         * 
+         * @param array &$valuesToUpdate Visit entity properties that will be updated.
+         * @param array $visit The entire visit entity. Read [this](/guides/persistence-and-the-mysql-backend#visits)
+         *                     to see what it contains.
          */
         Piwik::postEvent('Tracker.existingVisitInformation', array(&$valuesToUpdate, $this->visitorInfo));
 
@@ -286,14 +296,14 @@ class Visit implements VisitInterface
         $this->visitorInfo['config_resolution'] = substr($this->visitorInfo['config_resolution'], 0, 9);
 
         /**
-         * This event can be used to determine and set new visit information before the visit is
-         * logged. The UserCountry plugin, for example, uses this event to inject location information
-         * into the visit log table.
+         * Triggered before a new [visit entity](/guides/persistence-and-the-mysql-backend#visits) is persisted.
+         * 
+         * This event can be used to modify the visit entity or add new information to it before it is persisted.
+         * The UserCountry plugin, for example, uses this event to add location information for each visit.
          *
-         * @param array $visitInfo Information regarding the visit. This is information that
-         * persisted to the database.
-         * @param \Piwik\Tracker\Request $request Request object, contains many useful methods
-         *               such as getUserAgent() or getIp() to get the original IP.
+         * @param array &$visit The visit entity. Read [this](/guides/persistence-and-the-mysql-backend#visits) to see
+         *                      what information it contains.
+         * @param \Piwik\Tracker\Request $request An object describing the tracking request being processed.
          */
         Piwik::postEvent('Tracker.newVisitorInformation', array(&$this->visitorInfo, $this->request));
 
@@ -394,25 +404,14 @@ class Visit implements VisitInterface
             custom_var_k5, custom_var_v5';
         }
 
-        $select = "SELECT  	idvisitor,
+        $persistedVisitAttributes = $this->getVisitFieldsPersist();
+
+        $selectFields = implode(", ", $persistedVisitAttributes);
+
+        $select = "SELECT
                         visit_last_action_time,
                         visit_first_action_time,
-                        idvisit,
-                        visit_exit_idaction_url,
-                        visit_exit_idaction_name,
-                        visitor_returning,
-                        visitor_days_since_first,
-                        visitor_days_since_order,
-                        location_country,
-                        location_region,
-                        location_city,
-                        location_latitude,
-                        location_longitude,
-                        referer_name,
-                        referer_keyword,
-                        referer_type,
-                        visitor_count_visits,
-                        visit_goal_buyer
+                        $selectFields
                         $selectCustomVariables
     ";
         $from = "FROM " . Common::prefixTable('log_visit');
@@ -425,7 +424,7 @@ class Visit implements VisitInterface
         // 1) there is no visitor ID so we try to match only on config_id (heuristics)
         // 		Possible causes of no visitor ID: no browser cookie support, direct Tracking API request without visitor ID passed,
         //        importing server access logs with import_logs.py, etc.
-        // 		In this case we use config_id heuristics to try find the visitor in the past. There is a risk to assign
+        // 		In this case we use config_id heuristics to try find the visitor in tahhhe past. There is a risk to assign
         // 		this page view to the wrong visitor, but this is better than creating artificial visits.
         // 2) there is a visitor ID and we trust it (config setting trust_visitors_cookies, OR it was set using &cid= in tracking API),
         //      and in these cases, we force to look up this visitor id
@@ -508,26 +507,9 @@ class Visit implements VisitInterface
             $this->visitorInfo['visit_last_action_time'] = strtotime($visitRow['visit_last_action_time']);
             $this->visitorInfo['visit_first_action_time'] = strtotime($visitRow['visit_first_action_time']);
 
-            // We always keep the first idvisitor seen for this visit (so that all page views for this visit have the same idvisitor)
-            $this->visitorInfo['idvisitor'] = $visitRow['idvisitor'];
-            $this->visitorInfo['idvisit'] = $visitRow['idvisit'];
-            $this->visitorInfo['visit_exit_idaction_url'] = $visitRow['visit_exit_idaction_url'];
-            $this->visitorInfo['visit_exit_idaction_name'] = $visitRow['visit_exit_idaction_name'];
-            $this->visitorInfo['visitor_returning'] = $visitRow['visitor_returning'];
-            $this->visitorInfo['visitor_days_since_first'] = $visitRow['visitor_days_since_first'];
-            $this->visitorInfo['visitor_days_since_order'] = $visitRow['visitor_days_since_order'];
-            $this->visitorInfo['visitor_count_visits'] = $visitRow['visitor_count_visits'];
-            $this->visitorInfo['visit_goal_buyer'] = $visitRow['visit_goal_buyer'];
-            $this->visitorInfo['location_country'] = $visitRow['location_country'];
-            $this->visitorInfo['location_region'] = $visitRow['location_region'];
-            $this->visitorInfo['location_city'] = $visitRow['location_city'];
-            $this->visitorInfo['location_latitude'] = $visitRow['location_latitude'];
-            $this->visitorInfo['location_longitude'] = $visitRow['location_longitude'];
-
-            // Referrer information will be potentially used for Goal Conversion attribution
-            $this->visitorInfo['referer_name'] = $visitRow['referer_name'];
-            $this->visitorInfo['referer_keyword'] = $visitRow['referer_keyword'];
-            $this->visitorInfo['referer_type'] = $visitRow['referer_type'];
+            foreach($persistedVisitAttributes as $field) {
+                $this->visitorInfo[$field] = $visitRow[$field];
+            }
 
             // Custom Variables copied from Visit in potential later conversion
             if (!empty($selectCustomVariables)) {
@@ -552,6 +534,7 @@ class Visit implements VisitInterface
                     last action = " . date("r", $this->visitorInfo['visit_last_action_time']) . ",
                     first action = " . date("r", $this->visitorInfo['visit_first_action_time']) . ",
                     visit_goal_buyer' = " . $this->visitorInfo['visit_goal_buyer'] . ")");
+            //Common::printDebug($this->visitorInfo);
         } else {
             Common::printDebug("The visitor was not matched with an existing visitor...");
         }
@@ -624,7 +607,7 @@ class Visit implements VisitInterface
         $os = UserAgentParser::getOperatingSystem($userAgent);
         $os = $os === false ? 'UNK' : $os['id'];
 
-        $browserLang = $this->request->getBrowserLanguage();
+        $browserLang = substr($this->request->getBrowserLanguage(), 0, 20); // limit the length of this string to match db
         $configurationHash = $this->getConfigHash(
             $os,
             $browserName,
@@ -966,4 +949,53 @@ class Visit implements VisitInterface
         return $valuesToUpdate;
     }
 
+    /**
+     * @return array
+     */
+    public static function getVisitFieldsPersist()
+    {
+        $fields = array(
+            'idvisitor',
+            'idvisit',
+            'visit_exit_idaction_url',
+            'visit_exit_idaction_name',
+            'visitor_returning',
+            'visitor_days_since_first',
+            'visitor_days_since_order',
+            'visitor_count_visits',
+            'visit_goal_buyer',
+
+            'location_country',
+            'location_region',
+            'location_city',
+            'location_latitude',
+            'location_longitude',
+
+            'referer_name',
+            'referer_keyword',
+            'referer_type',
+        );
+
+        /**
+         * Triggered when checking if the current action being tracked belongs to an existing visit.
+         * 
+         * This event collects a list of [visit entity]() properties that should be loaded when reading
+         * the existing visit. Properties that appear in this list will be available in other tracking
+         * events such as {@hook Tracker.newConversionInformation} and {@hook Tracker.newVisitorInformation}.
+         * 
+         * Plugins can use this event to load additional visit entity properties for later use during tracking.
+         * When you add fields to this $fields array, they will be later available in Tracker.newConversionInformation
+         * 
+         * **Example**
+         * 
+         *     Piwik::addAction('Tracker.getVisitFieldsToPersist', function (&$fields) {
+         *         $fields[] = 'custom_visit_property';
+         *     });
+         * 
+         * @param array &$fields The list of visit properties to load.
+         */
+        Piwik::postEvent('Tracker.getVisitFieldsToPersist', array(&$fields));
+
+        return $fields;
+    }
 }

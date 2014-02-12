@@ -5,13 +5,12 @@
  * @link http://piwik.org
  * @license http://www.gnu.org/licenses/gpl-3.0.html GPL v3 or later
  *
- * @category Piwik_Plugins
- * @package Piwik_API
  */
 namespace Piwik\Plugins\API;
 
 use Exception;
 use Piwik\API\Request;
+use Piwik\Archive\DataTableFactory;
 use Piwik\Common;
 use Piwik\DataTable\Row;
 use Piwik\DataTable\Simple;
@@ -64,6 +63,74 @@ class ProcessedReport
     }
 
     /**
+     * Verfies whether the given report exists for the given site.
+     *
+     * @param int $idSite
+     * @param string $apiMethodUniqueId  For example 'MultiSites_getAll'
+     *
+     * @return bool
+     */
+    public function isValidReportForSite($idSite, $apiMethodUniqueId)
+    {
+        $report = $this->getReportMetadataByUniqueId($idSite, $apiMethodUniqueId);
+
+        return !empty($report);
+    }
+
+    /**
+     * Verfies whether the given metric belongs to the given report.
+     *
+     * @param int $idSite
+     * @param string $metric     For example 'nb_visits'
+     * @param string $apiMethodUniqueId  For example 'MultiSites_getAll'
+     *
+     * @return bool
+     */
+    public function isValidMetricForReport($metric, $idSite, $apiMethodUniqueId)
+    {
+        $translation = $this->translateMetric($metric, $idSite, $apiMethodUniqueId);
+
+        return !empty($translation);
+    }
+
+    public function getReportMetadataByUniqueId($idSite, $apiMethodUniqueId)
+    {
+        $metadata = $this->getReportMetadata(array($idSite));
+
+        foreach ($metadata as $report) {
+            if ($report['uniqueId'] == $apiMethodUniqueId) {
+                return $report;
+            }
+        }
+    }
+
+    /**
+     * Translates the given metric in case the report exists and in case the metric acutally belongs to the report.
+     *
+     * @param string $metric     For example 'nb_visits'
+     * @param int    $idSite
+     * @param string $apiMethodUniqueId  For example 'MultiSites_getAll'
+     *
+     * @return null|string
+     */
+    public function translateMetric($metric, $idSite, $apiMethodUniqueId)
+    {
+        $report = $this->getReportMetadataByUniqueId($idSite, $apiMethodUniqueId);
+
+        if (empty($report)) {
+            return;
+        }
+
+        $properties = array('metrics', 'processedMetrics', 'processedMetricsGoal');
+
+        foreach ($properties as $prop) {
+            if (!empty($report[$prop]) && is_array($report[$prop]) && array_key_exists($metric, $report[$prop])) {
+                return $report[$prop][$metric];
+            }
+        }
+    }
+
+    /**
      * Triggers a hook to ask plugins for available Reports.
      * Returns metadata information about each report (category, name, dimension, metrics, etc.)
      *
@@ -86,27 +153,49 @@ class ProcessedReport
         $availableReports = array();
 
         /**
-         * Triggered when gathering the metadata for all available reports.
+         * Triggered when gathering metadata for all available reports.
          * 
          * Plugins that define new reports should use this event to make them available in via
          * the metadata API. By doing so, the report will become available in scheduled reports
          * as well as in the Piwik Mobile App. In fact, any third party app that uses the metadata
          * API will automatically have access to the new report.
          * 
-         * TODO: list all information that is required in $availableReports.
-         * 
          * @param string &$availableReports The list of available reports. Append to this list
          *                                  to make a report available.
+         * 
+         *                                  Every element of this array must contain the following
+         *                                  information:
+         * 
+         *                                  - **category**: A translated string describing the report's category.
+         *                                  - **name**: The translated display title of the report.
+         *                                  - **module**: The plugin of the report.
+         *                                  - **action**: The API method that serves the report.
+         * 
+         *                                  The following information is optional:
+         * 
+         *                                  - **dimension**: The report's [dimension](/guides/all-about-analytics-data#dimensions) if any.
+         *                                  - **metrics**: An array mapping metric names with their display names.
+         *                                  - **metricsDocumentation**: An array mapping metric names with their
+         *                                                              translated documentation.
+         *                                  - **processedMetrics**: The array of metrics in the report that are
+         *                                                          calculated using existing metrics. Can be set to
+         *                                                          `false` if the report contains no processed
+         *                                                          metrics.
+         *                                  - **order**: The order of the report in the list of reports
+         *                                               with the same category.
+         * 
          * @param array $parameters Contains the values of the sites and period we are
-         *                          getting reports for. Some report depend on this data.
+         *                          getting reports for. Some reports depend on this data.
          *                          For example, Goals reports depend on the site IDs being
-         *                          request. Contains the following information:
+         *                          requested. Contains the following information:
          * 
          *                          - **idSites**: The array of site IDs we are getting reports for.
          *                          - **period**: The period type, eg, `'day'`, `'week'`, `'month'`,
          *                                        `'year'`, `'range'`.
          *                          - **date**: A string date within the period or a date range, eg,
          *                                      `'2013-01-01'` or `'2012-01-01,2013-01-01'`.
+         * 
+         * TODO: put dimensions section in all about analytics data
          */
         Piwik::postEvent('API.getReportMetadata', array(&$availableReports, $parameters));
         foreach ($availableReports as &$availableReport) {
@@ -133,7 +222,8 @@ class ProcessedReport
          * could, for example, add custom metrics to every report or remove reports from the list
          * of available reports.
          * 
-         * @param array &$availableReports List of all report metadata.
+         * @param array &$availableReports List of all report metadata. Read the {@hook API.getReportMetadata}
+         *                                 docs to see what this array contains.
          * @param array $parameters Contains the values of the sites and period we are
          *                          getting reports for. Some report depend on this data.
          *                          For example, Goals reports depend on the site IDs being
@@ -326,7 +416,7 @@ class ProcessedReport
             throw new Exception("API returned an error: " . $e->getMessage() . " at " . basename($e->getFile()) . ":" . $e->getLine() . "\n");
         }
 
-        list($newReport, $columns, $rowsMetadata) = $this->handleTableReport($idSite, $dataTable, $reportMetadata, $showRawMetrics);
+        list($newReport, $columns, $rowsMetadata, $totals) = $this->handleTableReport($idSite, $dataTable, $reportMetadata, $showRawMetrics);
         foreach ($columns as $columnId => &$name) {
             $name = ucfirst($name);
         }
@@ -342,6 +432,7 @@ class ProcessedReport
             'columns'        => $columns,
             'reportData'     => $newReport,
             'reportMetadata' => $rowsMetadata,
+            'reportTotal'    => $totals
         );
         if ($showTimer) {
             $return['timerMillis'] = $timer->getTimeMs(0);
@@ -403,6 +494,7 @@ class ProcessedReport
         }
 
         $columns = $this->hideShowMetrics($columns);
+        $totals  = array();
 
         // $dataTable is an instance of Set when multiple periods requested
         if ($dataTable instanceof DataTable\Map) {
@@ -421,19 +513,24 @@ class ProcessedReport
                 list($enhancedSimpleDataTable, $rowMetadata) = $this->handleSimpleDataTable($idSite, $simpleDataTable, $columns, $hasDimension, $showRawMetrics);
                 $enhancedSimpleDataTable->setAllTableMetadata($simpleDataTable->getAllTableMetadata());
 
-                $period = $simpleDataTable->getMetadata('period')->getLocalizedLongString();
+                $period = $simpleDataTable->getMetadata(DataTableFactory::TABLE_METADATA_PERIOD_INDEX)->getLocalizedLongString();
                 $newReport->addTable($enhancedSimpleDataTable, $period);
                 $rowsMetadata->addTable($rowMetadata, $period);
+
+                $totals = $this->aggregateReportTotalValues($simpleDataTable, $totals);
             }
         } else {
             $this->removeEmptyColumns($columns, $reportMetadata, $dataTable);
             list($newReport, $rowsMetadata) = $this->handleSimpleDataTable($idSite, $dataTable, $columns, $hasDimension, $showRawMetrics);
+
+            $totals = $this->aggregateReportTotalValues($dataTable, $totals);
         }
 
         return array(
             $newReport,
             $columns,
-            $rowsMetadata
+            $rowsMetadata,
+            $totals
         );
     }
 
@@ -594,5 +691,27 @@ class ProcessedReport
             $enhancedDataTable,
             $rowsMetadata
         );
+    }
+
+    private function aggregateReportTotalValues($simpleDataTable, $totals)
+    {
+        $metadataTotals = $simpleDataTable->getMetadata('totals');
+
+        if (empty($metadataTotals)) {
+
+            return $totals;
+        }
+
+        $simpleTotals = $this->hideShowMetrics($metadataTotals);
+
+        foreach ($simpleTotals as $metric => $value) {
+            if (!array_key_exists($metric, $totals)) {
+                $totals[$metric] = $value;
+            } else {
+                $totals[$metric] += $value;
+            }
+        }
+
+        return $totals;
     }
 }

@@ -44,16 +44,39 @@ class FakeAccess
         self::$idSitesView = $ids;
     }
 
-    public static function checkUserIsSuperUser()
+    public static function hasSuperUserAccess()
+    {
+        return self::$superUser;
+    }
+
+    public static function checkUserHasSuperUserAccess()
     {
         if (!self::$superUser) {
-            throw new Exception("checkUserIsSuperUser Fake exception // string not to be tested");
+            throw new Exception("checkUserHasSuperUserAccess Fake exception // string not to be tested");
         }
     }
 
-    public static function setSuperUser($bool = true)
+    /**
+     * @see FakeAccess::checkUserHasSuperUserAccess()
+     * @deprecated deprecated since version 2.0.4
+     */
+    public function checkUserIsSuperUser()
+    {
+        self::checkUserHasSuperUserAccess();
+    }
+
+    public static function setSuperUserAccess($bool = true)
     {
         self::$superUser = $bool;
+    }
+
+    /**
+     * @see FakeAccess::setSuperUserAccess()
+     * @deprecated deprecated since version 2.0.4
+     */
+    public static function setSuperUser($bool = true)
+    {
+        self::setSuperUserAccess($bool);
     }
 
     public static function reloadAccess()
@@ -123,7 +146,7 @@ class FakeAccess
                 throw new Exception("checkUserHasSomeAdminAccess Fake exception // string not to be tested");
             }
         } else {
-            return; //super user has some admin rights
+            return; //Super User has some admin rights
         }
     }
 
@@ -164,7 +187,10 @@ class FakeAccess
         }
         return $result;
     }
-    
+
+    /**
+     * @deprecated deprecated since version 2.0.4
+     */
     public function getSuperUserLogin()
     {
         return self::$superUserLogin;

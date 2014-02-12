@@ -5,8 +5,6 @@
  * @link http://piwik.org
  * @license http://www.gnu.org/licenses/gpl-3.0.html GPL v3 or later
  *
- * @category Piwik
- * @package Piwik
  */
 namespace Piwik\DataTable\Filter;
 
@@ -15,20 +13,18 @@ use Piwik\DataTable\Row;
 use Piwik\Site;
 
 /**
- * A DataTable filter that calculates the evolution of a metric and adds
+ * A {@link DataTable} filter that calculates the evolution of a metric and adds
  * it to each row as a percentage.
  *
- * **This filter cannot be used as an argument to [DataTable::filter](#)** since
- * it requires corresponding data from another datatable. Instead, to use it,
- * you must manually perform a binary filter (see the MultiSites API for an
+ * **This filter cannot be used as an argument to {@link Piwik\DataTable::filter()}** since
+ * it requires corresponding data from another DataTable. Instead, 
+ * you must manually perform a binary filter (see the **MultiSites** API for an
  * example).
  *
  * The evolution metric is calculated as:
  * 
  *     ((currentValue - pastValue) / pastValue) * 100
  *
- * @package Piwik
- * @subpackage DataTable
  * @api
  */
 class CalculateEvolutionFilter extends ColumnCallbackAddColumnPercentage

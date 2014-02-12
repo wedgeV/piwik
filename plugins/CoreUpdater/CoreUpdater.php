@@ -5,8 +5,6 @@
  * @link http://piwik.org
  * @license http://www.gnu.org/licenses/gpl-3.0.html GPL v3 or later
  *
- * @category Piwik_Plugins
- * @package CoreUpdater
  */
 namespace Piwik\Plugins\CoreUpdater;
 
@@ -17,16 +15,16 @@ use Piwik\FrontController;
 use Piwik\Piwik;
 use Piwik\UpdateCheck;
 use Piwik\Updater;
+use Piwik\UpdaterErrorException;
 use Piwik\Version;
 
 /**
  *
- * @package CoreUpdater
  */
 class CoreUpdater extends \Piwik\Plugin
 {
     /**
-     * @see Piwik_Plugin::getListHooksRegistered
+     * @see Piwik\Plugin::getListHooksRegistered
      */
     public function getListHooksRegistered()
     {
@@ -35,6 +33,47 @@ class CoreUpdater extends \Piwik\Plugin
             'Updater.checkForUpdates'                    => 'updateCheck',
         );
         return $hooks;
+    }
+
+    public static function updateComponents(Updater $updater, $componentsWithUpdateFile)
+    {
+        $warnings = array();
+        $errors   = array();
+        $deactivatedPlugins = array();
+        $coreError = false;
+
+        if (!empty($componentsWithUpdateFile)) {
+
+            // if error in any core update, show message + help message + EXIT
+            // if errors in any plugins updates, show them on screen, disable plugins that errored + CONTINUE
+            // if warning in any core update or in any plugins update, show message + CONTINUE
+            // if no error or warning, success message + CONTINUE
+            foreach ($componentsWithUpdateFile as $name => $filenames) {
+                try {
+                    $warnings = array_merge($warnings, $updater->update($name));
+                } catch (UpdaterErrorException $e) {
+                    $errors[] = $e->getMessage();
+                    if ($name == 'core') {
+                        $coreError = true;
+                        break;
+                    } else {
+                        \Piwik\Plugin\Manager::getInstance()->deactivatePlugin($name);
+                        $deactivatedPlugins[] = $name;
+                    }
+                }
+            }
+        }
+
+        Filesystem::deleteAllCacheOnUpdate();
+
+        $result = array(
+            'warnings'  => $warnings,
+            'errors'    => $errors,
+            'coreError' => $coreError,
+            'deactivatedPlugins' => $deactivatedPlugins
+        );
+
+        return $result;
     }
 
     public static function getComponentUpdates(Updater $updater)
@@ -68,6 +107,8 @@ class CoreUpdater extends \Piwik\Plugin
             && $module != 'CoreUpdater'
             // Proxy module is used to redirect users to piwik.org, should still work when Piwik must be updated
             && $module != 'Proxy'
+            // Do not show update page during installation.
+            && $module != 'Installation'
             && !($module == 'LanguagesManager'
                 && $action == 'saveLanguage')
         ) {

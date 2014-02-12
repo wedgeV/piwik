@@ -5,27 +5,23 @@
  * @link http://piwik.org
  * @license http://www.gnu.org/licenses/gpl-3.0.html GPL v3 or later
  *
- * @category Piwik
- * @package Piwik
  */
 namespace Piwik\DataTable\Filter;
 
 use Piwik\DataTable;
-use Piwik\DataTable\Filter;
+use Piwik\DataTable\BaseFilter;
 
 /**
- * Executes a callback for each row of a DataTable and adds the result as a new
- * metadata column.
+ * Executes a callback for each row of a {@link DataTable} and adds the result as a new
+ * row metadata value.
  * 
  * **Basic usage example**
  * 
  *     $dataTable->filter('ColumnCallbackAddMetadata', array('label', 'logo', 'Piwik\Plugins\MyPlugin\getLogoFromLabel'));
  * 
- * @package Piwik
- * @subpackage DataTable
  * @api
  */
-class ColumnCallbackAddMetadata extends Filter
+class ColumnCallbackAddMetadata extends BaseFilter
 {
     private $columnsToRead;
     private $functionToApply;
@@ -61,7 +57,7 @@ class ColumnCallbackAddMetadata extends Filter
     }
 
     /**
-     * See [ColumnCallbackAddMetadata](#).
+     * See {@link ColumnCallbackAddMetadata}.
      *
      * @param DataTable $table
      */

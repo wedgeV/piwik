@@ -5,8 +5,6 @@
  * @link http://piwik.org
  * @license http://www.gnu.org/licenses/gpl-3.0.html GPL v3 or later
  *
- * @category Piwik_Plugins
- * @package CoreVisualizations
  */
 
 namespace Piwik\Plugins\CoreVisualizations\Visualizations\JqplotGraph;
@@ -56,9 +54,9 @@ class Evolution extends JqplotGraph
         $this->config->custom_parameters['columns'] = $this->config->columns_to_display;
     }
 
-    public function afterAllFilteresAreApplied()
+    public function afterAllFiltersAreApplied()
     {
-        parent::afterAllFilteresAreApplied();
+        parent::afterAllFiltersAreApplied();
 
         if (false === $this->config->x_axis_step_size) {
             $rowCount = $this->dataTable->getRowsCount();

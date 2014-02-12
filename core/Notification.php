@@ -5,8 +5,6 @@
  * @link http://piwik.org
  * @license http://www.gnu.org/licenses/gpl-3.0.html GPL v3 or later
  *
- * @category Piwik
- * @package Piwik
  */
 namespace Piwik;
 
@@ -17,10 +15,11 @@ namespace Piwik;
  * Notifications consist of a message, a context (the message type), a priority
  * and a display type.
  * 
- * A notification's context will affect the way the message looks, but not how it
- * is displayed. A notification's display type will determine how the message is
- * displayed. The priority determines where it is shown in the list of
- * all displayed notifications.
+ * **The context** affects the way the message looks, but not how it is displayed.
+ * 
+ * **The display type** determines how the message is displayed.
+ * 
+ * **The priority** determines where it is shown in the list of all displayed notifications.
  * 
  * ### Examples
  * 
@@ -44,8 +43,6 @@ namespace Piwik;
  *     $notification->type = Notification::TYPE_PERSISTENT;
  *     $notification->priority = Notification::PRIORITY_MAX;
  * 
- * @package Piwik
- * @subpackage Notification
  * @api
  */
 class Notification
@@ -76,10 +73,10 @@ class Notification
     const PRIORITY_MAX    = 100;
 
     /**
-     * If this flag applied, no close icon will be displayed. _Note: persistent notifications always have a close
+     * If this flag is applied, no close icon will be displayed. _Note: persistent notifications always have a close
      * icon._
      * 
-     * See [flags](#flags).
+     * See {@link $flags}.
      */
     const FLAG_NO_CLEAR   = 1;
 
@@ -124,14 +121,14 @@ class Notification
     public $flags = self::FLAG_NO_CLEAR;
 
     /**
-     * The notification's display type. See `TYPE_*` constants in [this class](#).
+     * The notification's display type. See `TYPE_*` constants in {@link Notification}.
      * 
      * @var string
      */
     public $type = self::TYPE_TRANSIENT;
 
     /**
-     * The notification's context (message type). See `CONTEXT_*` constants in [this class](#).
+     * The notification's context (message type). See `CONTEXT_*` constants in {@link Notification}.
      * 
      * A notification's context determines how it will be styled.
      * 
@@ -141,7 +138,7 @@ class Notification
 
     /**
      * The notification's priority. The higher the priority, the higher the order. See `PRIORITY_*`
-     * constants in [this class](#) to see possible priority values.
+     * constants in {@link Notification} to see possible priority values.
      * 
      * @var int
      */
@@ -149,7 +146,7 @@ class Notification
 
     /**
      * If true, the message will not be escaped before being outputted as HTML. If you set this to
-     * true, make sure you escape text yourself in order to avoid any possible XSS vulnerabilities.
+     * `true`, make sure you escape text yourself in order to avoid XSS vulnerabilities.
      * 
      * @var bool
      */

@@ -5,8 +5,6 @@
  * @link http://piwik.org
  * @license http://www.gnu.org/licenses/gpl-3.0.html GPL v3 or later
  *
- * @category Piwik_Plugins
- * @package Piwik_API
  */
 namespace Piwik\Plugins\API;
 
@@ -22,14 +20,21 @@ use Piwik\DataTable;
 use Piwik\Period;
 use Piwik\Piwik;
 use Piwik\Url;
+use Piwik\Site;
 
 /**
  * This class generates a Row evolution dataset, from input request
  *
- * @package Piwik_API
  */
 class RowEvolution
 {
+    private static $actionsUrlReports = array(
+        'getPageUrls',
+        'getPageUrlsFollowingSiteSearch',
+        'getEntryPageUrls',
+        'getExitPageUrls',
+        'getPageUrl'
+    );
 
     public function getRowEvolution($idSite, $period, $date, $apiModule, $apiAction, $label = false, $segment = false, $column = false, $language = false, $idGoal = false, $legendAppendMetric = true, $labelUseAbsoluteUrl = true)
     {
@@ -46,14 +51,14 @@ class RowEvolution
         $label = ResponseBuilder::unsanitizeLabelParameter($label);
         $labels = Piwik::getArrayFromApiParameter($label);
 
-        $dataTable = $this->loadRowEvolutionDataFromAPI($idSite, $period, $date, $apiModule, $apiAction, $labels, $segment, $idGoal);
+        $metadata = $this->getRowEvolutionMetaData($idSite, $period, $date, $apiModule, $apiAction, $language, $idGoal);
+
+        $dataTable = $this->loadRowEvolutionDataFromAPI($metadata, $idSite, $period, $date, $apiModule, $apiAction, $labels, $segment, $idGoal);
 
         if (empty($labels)) {
             $labels = $this->getLabelsFromDataTable($dataTable, $labels);
             $dataTable = $this->enrichRowAddMetadataLabelIndex($labels, $dataTable);
         }
-        $metadata = $this->getRowEvolutionMetaData($idSite, $period, $date, $apiModule, $apiAction, $language, $idGoal);
-
         if (count($labels) != 1) {
             $data = $this->getMultiRowEvolution(
                 $dataTable,
@@ -67,6 +72,7 @@ class RowEvolution
             );
         } else {
             $data = $this->getSingleRowEvolution(
+                $idSite,
                 $dataTable,
                 $metadata,
                 $apiModule,
@@ -132,7 +138,7 @@ class RowEvolution
      * @param bool $labelUseAbsoluteUrl
      * @return array containing  report data, metadata, label, logo
      */
-    private function getSingleRowEvolution($dataTable, $metadata, $apiModule, $apiAction, $label, $labelUseAbsoluteUrl = true)
+    private function getSingleRowEvolution($idSite, $dataTable, $metadata, $apiModule, $apiAction, $label, $labelUseAbsoluteUrl = true)
     {
         $metricNames = array_keys($metadata['metrics']);
 
@@ -159,7 +165,7 @@ class RowEvolution
                 // this removes the label as well (which is desired for two reasons: (1) it was passed
                 // in the request, (2) it would cause the evolution graph to show the label in the legend).
                 foreach ($row->getColumns() as $column => $value) {
-                    if (!in_array($column, $metricNames)) {
+                    if (!in_array($column, $metricNames) && $column != 'label_html') {
                         $row->deleteColumn($column);
                     }
                 }
@@ -171,11 +177,11 @@ class RowEvolution
 
         // if we have a recursive label and no url, use the path
         if (!$urlFound) {
-            $actualLabel = str_replace(LabelFilter::SEPARATOR_RECURSIVE_LABEL, ' - ', $label);
+            $actualLabel = $this->formatQueryLabelForDisplay($idSite, $apiModule, $apiAction, $label);
         }
 
         $return = array(
-            'label'      => SafeDecodeLabel::safeDecodeLabel($actualLabel),
+            'label'      => SafeDecodeLabel::decodeLabelSafe($actualLabel),
             'reportData' => $dataTable,
             'metadata'   => $metadata
         );
@@ -183,6 +189,25 @@ class RowEvolution
             $return['logo'] = $logo;
         }
         return $return;
+    }
+
+    private function formatQueryLabelForDisplay($idSite, $apiModule, $apiAction, $label)
+    {
+        // rows with subtables do not contain URL metadata. this hack makes sure the label titles in row
+        // evolution popovers look like URLs.
+        if ($apiModule == 'Actions'
+            && in_array($apiAction, self::$actionsUrlReports)
+        ) {
+            $mainUrl = Site::getMainUrlFor($idSite);
+            $mainUrlHost = @parse_url($mainUrl, PHP_URL_HOST);
+
+            $replaceRegex = "/\\s*" . preg_quote(LabelFilter::SEPARATOR_RECURSIVE_LABEL) . "\\s*/";
+            $cleanLabel = preg_replace($replaceRegex, '/', $label);
+
+            return $mainUrlHost . '/' . $cleanLabel . '/';
+        } else {
+            return str_replace(LabelFilter::SEPARATOR_RECURSIVE_LABEL, ' - ', $label);
+        }
     }
 
     /**
@@ -208,6 +233,7 @@ class RowEvolution
     }
 
     /**
+     * @param array $metadata see getRowEvolutionMetaData()
      * @param int $idSite
      * @param string $period
      * @param string $date
@@ -219,7 +245,7 @@ class RowEvolution
      * @throws Exception
      * @return DataTable\Map|DataTable
      */
-    private function loadRowEvolutionDataFromAPI($idSite, $period, $date, $apiModule, $apiAction, $label = false, $segment = false, $idGoal = false)
+    private function loadRowEvolutionDataFromAPI($metadata, $idSite, $period, $date, $apiModule, $apiAction, $label = false, $segment = false, $idGoal = false)
     {
         if (!is_array($label)) {
             $label = array($label);
@@ -250,13 +276,8 @@ class RowEvolution
         // note: some reports should not be filtered with AddColumnProcessedMetrics
         // specifically, reports without the Metrics::INDEX_NB_VISITS metric such as Goals.getVisitsUntilConversion & Goal.getDaysToConversion
         // this is because the AddColumnProcessedMetrics filter removes all datable rows lacking this metric
-        if
-        (
-            $apiModule != 'Actions'
-            &&
-            ($apiModule != 'Goals' || ($apiAction != 'getVisitsUntilConversion' && $apiAction != 'getDaysToConversion'))
-            && !empty($label)
-        ) {
+        if( isset($metadata['metrics']['nb_visits'])
+            && !empty($label)) {
             $parameters['filter_add_columns_when_show_all_columns'] = '1';
         }
 
@@ -401,6 +422,11 @@ class RowEvolution
                     $actualLabels[$labelIdx] = $this->getRowUrlForEvolutionLabel(
                         $labelRow, $apiModule, $apiAction, $labelUseAbsoluteUrl);
 
+                    $prettyLabel = $labelRow->getColumn('label_html');
+                    if($prettyLabel !== false) {
+                        $actualLabels[$labelIdx] = $prettyLabel;
+                    }
+
                     $logos[$labelIdx] = $labelRow->getMetadata('logo');
 
                     if (!empty($actualLabels[$labelIdx])) {
@@ -410,7 +436,8 @@ class RowEvolution
             }
 
             if (empty($actualLabels[$labelIdx])) {
-                $actualLabels[$labelIdx] = $this->cleanOriginalLabel($label);
+                $cleanLabel = $this->cleanOriginalLabel($label);
+                $actualLabels[$labelIdx] = $cleanLabel;
             }
         }
 
@@ -456,7 +483,7 @@ class RowEvolution
                 $label .= ' (' . $metadata['columns'][$column] . ')';
             }
             $metricName = $column . '_' . $labelIndex;
-            $metadata['metrics'][$metricName] = SafeDecodeLabel::safeDecodeLabel($label);
+            $metadata['metrics'][$metricName] = $label;
 
             if (!empty($logos[$labelIndex])) {
                 $metadata['logos'][$metricName] = $logos[$labelIndex];
@@ -491,11 +518,12 @@ class RowEvolution
     }
 
     /**
-     * Returns a prettier, more comprehensible version of a row evolution label
-     * for display.
+     * Returns a prettier, more comprehensible version of a row evolution label for display.
      */
     private function cleanOriginalLabel($label)
     {
-        return str_replace(LabelFilter::SEPARATOR_RECURSIVE_LABEL, ' - ', $label);
+        $label = str_replace(LabelFilter::SEPARATOR_RECURSIVE_LABEL, ' - ', $label);
+        $label = SafeDecodeLabel::decodeLabelSafe($label);
+        return $label;
     }
 }

@@ -5,8 +5,6 @@
  * @link http://piwik.org
  * @license http://www.gnu.org/licenses/gpl-3.0.html GPL v3 or later
  *
- * @category Piwik_Plugins
- * @package CorePluginsAdmin
  */
 namespace Piwik\Plugins\CorePluginsAdmin;
 
@@ -21,9 +19,10 @@ use Piwik\Plugin;
 use Piwik\Settings\Manager as SettingsManager;
 use Piwik\Url;
 use Piwik\View;
+use Piwik\Version;
+use Exception;
 
 /**
- * @package CorePluginsAdmin
  */
 class Controller extends Plugin\ControllerAdmin
 {
@@ -41,6 +40,7 @@ class Controller extends Plugin\ControllerAdmin
         static::dieIfMarketplaceIsDisabled();
 
         $pluginName = $this->initPluginModification($nonceName);
+        $this->dieIfPluginsAdminIsDisabled();
 
         $view = $this->configureView('@CorePluginsAdmin/' . $template);
 
@@ -69,7 +69,7 @@ class Controller extends Plugin\ControllerAdmin
     public function updatePlugin()
     {
         $view = $this->createUpdateOrInstallView('updatePlugin', static::UPDATE_NONCE);
-        echo $view->render();
+        return $view->render();
     }
 
     public function installPlugin()
@@ -77,12 +77,13 @@ class Controller extends Plugin\ControllerAdmin
         $view = $this->createUpdateOrInstallView('installPlugin', static::INSTALL_NONCE);
         $view->nonce = Nonce::getNonce(static::ACTIVATE_NONCE);
 
-        echo $view->render();
+        return $view->render();
     }
 
     public function uploadPlugin()
     {
-        Piwik::checkUserIsSuperUser();
+        static::dieIfPluginsAdminIsDisabled();
+        Piwik::checkUserHasSuperUserAccess();
 
         $nonce = Common::getRequestVar('nonce', null, 'string');
 
@@ -118,7 +119,7 @@ class Controller extends Plugin\ControllerAdmin
             'isActivated' => \Piwik\Plugin\Manager::getInstance()->isPluginActivated($pluginMetadata->name)
         );
 
-        echo $view->render();
+        return $view->render();
     }
 
     public function pluginDetails()
@@ -126,23 +127,43 @@ class Controller extends Plugin\ControllerAdmin
         static::dieIfMarketplaceIsDisabled();
 
         $pluginName = Common::getRequestVar('pluginName', null, 'string');
+        $activeTab  = Common::getRequestVar('activeTab', '', 'string');
+        if ('changelog' !== $activeTab) {
+            $activeTab = '';
+        }
 
         $view = $this->configureView('@CorePluginsAdmin/pluginDetails');
 
         try {
-            $marketplace = new Marketplace();
+            $marketplace  = new Marketplace();
             $view->plugin = $marketplace->getPluginInfo($pluginName);
+            $view->isSuperUser  = Piwik::hasUserSuperUserAccess();
+            $view->installNonce = Nonce::getNonce(static::INSTALL_NONCE);
+            $view->updateNonce  = Nonce::getNonce(static::UPDATE_NONCE);
+            $view->activeTab    = $activeTab;
         } catch (\Exception $e) {
             $view->errorMessage = $e->getMessage();
         }
 
-        echo $view->render();
+        return $view->render();
     }
 
     private function dieIfMarketplaceIsDisabled()
     {
         if (!CorePluginsAdmin::isMarketplaceEnabled()) {
-            throw new \Exception('The Marketplace is disabled. Enable the Marketplace by changing the config entry "enable_marketplace" to 1.');
+            throw new \Exception('The Marketplace feature has been disabled.
+            You may enable the Marketplace by changing the config entry "enable_marketplace" to 1.
+            Please contact your Piwik admins with your request so they can assist.');
+        }
+
+        $this->dieIfPluginsAdminIsDisabled();
+    }
+
+    private function dieIfPluginsAdminIsDisabled()
+    {
+        if (!CorePluginsAdmin::isPluginsAdminEnabled()) {
+            throw new \Exception('Enabling, disabling and uninstalling plugins has been disabled by Piwik admins.
+            Please contact your Piwik admins with your request so they can assist you.');
         }
     }
 
@@ -166,7 +187,7 @@ class Controller extends Plugin\ControllerAdmin
         $view->sort = $sort;
         $view->installNonce = Nonce::getNonce(static::INSTALL_NONCE);
         $view->updateNonce = Nonce::getNonce(static::UPDATE_NONCE);
-        $view->isSuperUser = Piwik::isUserIsSuperUser();
+        $view->isSuperUser = Piwik::hasUserSuperUserAccess();
 
         return $view;
     }
@@ -174,29 +195,29 @@ class Controller extends Plugin\ControllerAdmin
     public function browsePlugins()
     {
         $view = $this->createBrowsePluginsOrThemesView('browsePlugins', $themesOnly = false);
-        echo $view->render();
+        return $view->render();
     }
 
     public function browseThemes()
     {
         $view = $this->createBrowsePluginsOrThemesView('browseThemes', $themesOnly = true);
-        echo $view->render();
+        return $view->render();
     }
 
-    function extend()
+    public function extend()
     {
         static::dieIfMarketplaceIsDisabled();
 
         $view = $this->configureView('@CorePluginsAdmin/extend');
         $view->installNonce = Nonce::getNonce(static::INSTALL_NONCE);
-        $view->isSuperUser = Piwik::isUserIsSuperUser();
+        $view->isSuperUser = Piwik::hasUserSuperUserAccess();
 
-        echo $view->render();
+        return $view->render();
     }
 
     private function createPluginsOrThemesView($template, $themesOnly)
     {
-        Piwik::checkUserIsSuperUser();
+        Piwik::checkUserHasSuperUserAccess();
 
         $view = $this->configureView('@CorePluginsAdmin/' . $template);
 
@@ -212,27 +233,34 @@ class Controller extends Plugin\ControllerAdmin
 
         $view->pluginNamesHavingSettings = $this->getPluginNamesHavingSettingsForCurrentUser();
         $view->isMarketplaceEnabled = CorePluginsAdmin::isMarketplaceEnabled();
+        $view->isPluginsAdminEnabled = CorePluginsAdmin::isPluginsAdminEnabled();
+
+        $view->pluginsHavingUpdate    = array();
+        $view->marketplacePluginNames = array();
 
         if (CorePluginsAdmin::isMarketplaceEnabled()) {
-            $marketplace = new Marketplace();
-            $view->pluginsHavingUpdate = $marketplace->getPluginsHavingUpdate($themesOnly);
-        } else {
-            $view->pluginsHavingUpdate = array();
+            try {
+                $marketplace = new Marketplace();
+                $view->marketplacePluginNames = $marketplace->getAvailablePluginNames($themesOnly);
+                $view->pluginsHavingUpdate    = $marketplace->getPluginsHavingUpdate($themesOnly);
+            } catch(Exception $e) {
+                // curl exec connection error (ie. server not connected to internet)
+            }
         }
 
         return $view;
     }
 
-    function plugins()
+    public function plugins()
     {
         $view = $this->createPluginsOrThemesView('plugins', $themesOnly = false);
-        echo $view->render();
+        return $view->render();
     }
 
-    function themes()
+    public function themes()
     {
         $view = $this->createPluginsOrThemesView('themes', $themesOnly = true);
-        echo $view->render();
+        return $view->render();
     }
 
     protected function configureView($template)
@@ -241,7 +269,11 @@ class Controller extends Plugin\ControllerAdmin
 
         $view = new View($template);
         $this->setBasicVariablesView($view);
-        $this->displayWarningIfConfigFileNotWritable();
+
+        // If user can manage plugins+themes, display a warning if config not writable
+        if (CorePluginsAdmin::isPluginsAdminEnabled()) {
+            $this->displayWarningIfConfigFileNotWritable();
+        }
 
         $view->errorMessage = '';
 
@@ -259,7 +291,7 @@ class Controller extends Plugin\ControllerAdmin
 
             if (!isset($plugin['info'])) {
 
-                $suffix = Piwik::translate('CorePluginsAdmin_PluginAskDevToUpdate');
+                $suffix = Piwik::translate('CorePluginsAdmin_PluginNotWorkingAlternative');
                 // If the plugin has been renamed, we do not show message to ask user to update plugin
                 if($pluginName != Request::renameModule($pluginName)) {
                     $suffix = "You may uninstall the plugin or manually delete the files in piwik/plugins/$pluginName/";
@@ -300,39 +332,60 @@ class Controller extends Plugin\ControllerAdmin
         return $pluginsFiltered;
     }
 
-    public function deactivate($redirectAfter = true)
+    public function safemode($lastError = array())
     {
-        $pluginName = $this->initPluginModification(static::DEACTIVATE_NONCE);
-        \Piwik\Plugin\Manager::getInstance()->deactivatePlugin($pluginName);
-        $this->redirectAfterModification($redirectAfter);
-    }
-
-    protected function redirectAfterModification($redirectAfter)
-    {
-        if ($redirectAfter) {
-            Url::redirectToReferrer();
-        }
-    }
-
-    protected function initPluginModification($nonceName)
-    {
-        Piwik::checkUserIsSuperUser();
-
-        $nonce = Common::getRequestVar('nonce', null, 'string');
-
-        if (!Nonce::verifyNonce($nonceName, $nonce)) {
-            throw new \Exception(Piwik::translate('General_ExceptionNonceMismatch'));
+        if (empty($lastError)) {
+            $lastError = array(
+                'message' => Common::getRequestVar('error_message', null, 'string'),
+                'file'    => Common::getRequestVar('error_file', null, 'string'),
+                'line'    => Common::getRequestVar('error_line', null, 'integer')
+            );
         }
 
-        Nonce::discardNonce($nonceName);
+        $outputFormat = Common::getRequestVar('format', 'html', 'string');
+        $outputFormat = strtolower($outputFormat);
 
-        $pluginName = Common::getRequestVar('pluginName', null, 'string');
-        return $pluginName;
+        if (!empty($outputFormat) && 'html' !== $outputFormat) {
+
+            $errorMessage = $lastError['message'];
+
+            if (Piwik::isUserIsAnonymous()) {
+                $errorMessage = 'A fatal error occurred.';
+            }
+
+            $response = new \Piwik\API\ResponseBuilder($outputFormat);
+            $message  = $response->getResponseException(new Exception($errorMessage));
+
+            return $message;
+        }
+
+        $view = new View('@CorePluginsAdmin/safemode');
+        $view->lastError   = $lastError;
+        $view->isSuperUser = Piwik::hasUserSuperUserAccess();
+        $view->isAnonymousUser = Piwik::isUserIsAnonymous();
+        $view->plugins         = Plugin\Manager::getInstance()->returnLoadedPluginsInfo();
+        $view->deactivateNonce = Nonce::getNonce(static::DEACTIVATE_NONCE);
+        $view->uninstallNonce  = Nonce::getNonce(static::UNINSTALL_NONCE);
+        $view->emailSuperUser  = implode(',', Piwik::getAllSuperUserAccessEmailAddresses());
+        $view->piwikVersion    = Version::VERSION;
+        $view->showVersion     = !Common::getRequestVar('tests_hide_piwik_version', 0);
+        $view->pluginCausesIssue = '';
+
+        if (!empty($lastError['file'])) {
+            preg_match('/piwik\/plugins\/(.*)\//', $lastError['file'], $matches);
+
+            if (!empty($matches[1])) {
+                $view->pluginCausesIssue = $matches[1];
+            }
+        }
+
+        return $view->render();
     }
 
     public function activate($redirectAfter = true)
     {
         $pluginName = $this->initPluginModification(static::ACTIVATE_NONCE);
+        $this->dieIfPluginsAdminIsDisabled();
 
         \Piwik\Plugin\Manager::getInstance()->activatePlugin($pluginName);
 
@@ -344,12 +397,12 @@ class Controller extends Plugin\ControllerAdmin
                 $actionToRedirect = 'themes';
             }
 
-            $message = Piwik::translate('CorePluginsAdmin_PluginSuccessfullyActicated', array($pluginName));
+            $message = Piwik::translate('CorePluginsAdmin_SuccessfullyActicated', array($pluginName));
             if (SettingsManager::hasPluginSettingsForCurrentUser($pluginName)) {
-                $target   = sprintf('index.php%s#%s',
-                                    Url::getCurrentQueryStringWithParametersModified(array('module' => 'CoreAdminHome', 'action' => 'pluginSettings')),
-                                    $pluginName);
-                $message .= ' ' . Piwik::translate('CorePluginsAdmin_ChangeSettingsPossible', array($target));
+                $target   = sprintf('<a href="index.php%s#%s">',
+                    Url::getCurrentQueryStringWithParametersModified(array('module' => 'CoreAdminHome', 'action' => 'pluginSettings')),
+                    $pluginName);
+                $message .= ' ' . Piwik::translate('CorePluginsAdmin_ChangeSettingsPossible', array($target, '</a>'));
             }
 
             $notification = new Notification($message);
@@ -362,9 +415,19 @@ class Controller extends Plugin\ControllerAdmin
         }
     }
 
+    public function deactivate($redirectAfter = true)
+    {
+        $pluginName = $this->initPluginModification(static::DEACTIVATE_NONCE);
+        $this->dieIfPluginsAdminIsDisabled();
+
+        \Piwik\Plugin\Manager::getInstance()->deactivatePlugin($pluginName);
+        $this->redirectAfterModification($redirectAfter);
+    }
+
     public function uninstall($redirectAfter = true)
     {
         $pluginName = $this->initPluginModification(static::UNINSTALL_NONCE);
+        $this->dieIfPluginsAdminIsDisabled();
 
         $uninstalled = \Piwik\Plugin\Manager::getInstance()->uninstallPlugin($pluginName);
 
@@ -380,6 +443,30 @@ class Controller extends Plugin\ControllerAdmin
         }
 
         $this->redirectAfterModification($redirectAfter);
+    }
+
+    protected function initPluginModification($nonceName)
+    {
+        Piwik::checkUserHasSuperUserAccess();
+
+        $nonce = Common::getRequestVar('nonce', null, 'string');
+
+        if (!Nonce::verifyNonce($nonceName, $nonce)) {
+            throw new \Exception(Piwik::translate('General_ExceptionNonceMismatch'));
+        }
+
+        Nonce::discardNonce($nonceName);
+
+        $pluginName = Common::getRequestVar('pluginName', null, 'string');
+
+        return $pluginName;
+    }
+
+    protected function redirectAfterModification($redirectAfter)
+    {
+        if ($redirectAfter) {
+            Url::redirectToReferrer();
+        }
     }
 
     private function getPluginNamesHavingSettingsForCurrentUser()

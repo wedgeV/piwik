@@ -5,8 +5,6 @@
  * @link http://piwik.org
  * @license http://www.gnu.org/licenses/gpl-3.0.html GPL v3 or later
  *
- * @category Piwik_Plugins
- * @package Overlay
  */
 namespace Piwik\Plugins\Overlay;
 
@@ -46,7 +44,7 @@ class Controller extends \Piwik\Plugin\Controller
 
         $view->ssl = ProxyHttp::isHttps();
 
-        echo $view->render();
+        return $view->render();
     }
 
     /** Render the area left of the iframe */
@@ -119,7 +117,7 @@ class Controller extends \Piwik\Plugin\Controller
         $view->idSite = $idSite;
         $view->period = $period;
         $view->date = $date;
-        echo $view->render();
+        return $view->render();
     }
 
     /**
@@ -136,7 +134,7 @@ class Controller extends \Piwik\Plugin\Controller
         $urls = $sitesManager->getSiteUrlsFromId($idSite);
 
         @header('Content-Type: text/html; charset=UTF-8');
-        echo '
+        return '
 			<html><head><title></title></head><body>
 			<script type="text/javascript">
 				function handleProtocol(url) {
@@ -219,7 +217,7 @@ class Controller extends \Piwik\Plugin\Controller
             $view->troubleshoot = htmlentities(Piwik::translate('Overlay_RedirectUrlErrorUser'));
         }
 
-        echo $view->render();
+        return $view->render();
     }
 
     /**
@@ -233,6 +231,6 @@ class Controller extends \Piwik\Plugin\Controller
     public function notifyParentIframe()
     {
         $view = new View('@Overlay/notifyParentIframe');
-        echo $view->render();
+        return $view->render();
     }
 }

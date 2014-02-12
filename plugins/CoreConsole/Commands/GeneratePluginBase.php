@@ -5,8 +5,6 @@
  * @link http://piwik.org
  * @license http://www.gnu.org/licenses/gpl-3.0.html GPL v3 or later
  *
- * @category Piwik_Plugins
- * @package CoreConsole
  */
 
 namespace Piwik\Plugins\CoreConsole\Commands;
@@ -14,9 +12,10 @@ namespace Piwik\Plugins\CoreConsole\Commands;
 
 use Piwik\Filesystem;
 use Piwik\Plugin\ConsoleCommand;
+use Symfony\Component\Console\Input\InputInterface;
+use Symfony\Component\Console\Output\OutputInterface;
 
 /**
- * @package CoreConsole
  */
 class GeneratePluginBase extends ConsoleCommand
 {
@@ -54,7 +53,11 @@ class GeneratePluginBase extends ConsoleCommand
     {
         $replace['PLUGINNAME'] = $pluginName;
 
-        $files = Filesystem::globr($templateFolder, '*');
+        $files = array_merge(
+                Filesystem::globr($templateFolder, '*'),
+                // Also copy files starting with . such as .gitignore
+                Filesystem::globr($templateFolder, '.*')
+        );
 
         foreach ($files as $file) {
             $fileNamePlugin = str_replace($templateFolder, '', $file);
@@ -105,6 +108,36 @@ class GeneratePluginBase extends ConsoleCommand
         }
 
         return $pluginNames;
+    }
+
+    /**
+     * @param InputInterface $input
+     * @param OutputInterface $output
+     * @return array
+     * @throws \RunTimeException
+     */
+    protected function askPluginNameAndValidate(InputInterface $input, OutputInterface $output, $pluginNames, $invalidArgumentException)
+    {
+        $validate = function ($pluginName) use ($pluginNames, $invalidArgumentException) {
+            if (!in_array($pluginName, $pluginNames)) {
+                throw new \InvalidArgumentException($invalidArgumentException);
+            }
+
+            return $pluginName;
+        };
+
+        $pluginName = $input->getOption('pluginname');
+
+        if (empty($pluginName)) {
+            $dialog = $this->getHelperSet()->get('dialog');
+            $pluginName = $dialog->askAndValidate($output, 'Enter the name of your plugin: ', $validate, false, null, $pluginNames);
+        } else {
+            $validate($pluginName);
+        }
+
+        $pluginName = ucfirst($pluginName);
+
+        return $pluginName;
     }
 
 }

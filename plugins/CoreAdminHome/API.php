@@ -5,13 +5,10 @@
  * @link http://piwik.org
  * @license http://www.gnu.org/licenses/gpl-3.0.html GPL v3 or later
  *
- * @category Piwik_Plugins
- * @package CoreAdminHome
  */
 namespace Piwik\Plugins\CoreAdminHome;
 
 use Exception;
-use Piwik\Common;
 use Piwik\Config;
 use Piwik\DataAccess\ArchiveTableCreator;
 use Piwik\Date;
@@ -20,12 +17,13 @@ use Piwik\Option;
 use Piwik\Period;
 use Piwik\Period\Week;
 use Piwik\Piwik;
+use Piwik\Plugins\PrivacyManager\PrivacyManager;
+use Piwik\Plugins\SitesManager\SitesManager;
 use Piwik\SettingsPiwik;
 use Piwik\Site;
 use Piwik\TaskScheduler;
 
 /**
- * @package CoreAdminHome
  * @method static \Piwik\Plugins\CoreAdminHome\API getInstance()
  */
 class API extends \Piwik\Plugin\API
@@ -37,13 +35,13 @@ class API extends \Piwik\Plugin\API
      */
     public function runScheduledTasks()
     {
-        Piwik::checkUserIsSuperUser();
+        Piwik::checkUserHasSuperUserAccess();
         return TaskScheduler::runTasks();
     }
 
     public function getKnownSegmentsToArchive()
     {
-        Piwik::checkUserIsSuperUser();
+        Piwik::checkUserHasSuperUserAccess();
         return SettingsPiwik::getKnownSegmentsToArchive();
     }
 
@@ -97,8 +95,9 @@ class API extends \Piwik\Plugin\API
         }
 
         // If using the feature "Delete logs older than N days"...
-        $logsAreDeletedBeforeThisDate = Config::getInstance()->Deletelogs['delete_logs_schedule_lowest_interval'];
-        $logsDeleteEnabled = Config::getInstance()->Deletelogs['delete_logs_enable'];
+        $purgeDataSettings = PrivacyManager::getPurgeDataSettings();
+        $logsAreDeletedBeforeThisDate = $purgeDataSettings['delete_logs_schedule_lowest_interval'];
+        $logsDeleteEnabled = $purgeDataSettings['delete_logs_enable'];
         $minimumDateWithLogs = false;
         if ($logsDeleteEnabled
             && $logsAreDeletedBeforeThisDate
@@ -143,7 +142,6 @@ class API extends \Piwik\Plugin\API
         }
 
         // In each table, invalidate day/week/month/year containing this date
-        $sqlIdSites = implode(",", $idSites);
         $archiveTables = ArchiveTableCreator::getTablesArchivesInstalled();
         foreach ($archiveTables as $table) {
             // Extract Y_m from table name
@@ -166,18 +164,10 @@ class API extends \Piwik\Plugin\API
 
             $query = "DELETE FROM $table " .
                 " WHERE ( $sql ) " .
-                " AND idsite IN (" . $sqlIdSites . ")";
+                " AND idsite IN (" . implode(",", $idSites) . ")";
             Db::query($query, $bind);
         }
-
-        // Update piwik_site.ts_created
-        $query = "UPDATE " . Common::prefixTable("site") .
-            " SET ts_created = ?" .
-            " WHERE idsite IN ( $sqlIdSites )
-					AND ts_created > ?";
-        $minDateSql = $minDate->subDay(1)->getDatetime();
-        $bind = array($minDateSql, $minDateSql);
-        Db::query($query, $bind);
+        \Piwik\Plugins\SitesManager\API::getInstance()->updateSiteCreatedTime($idSites, $minDate);
 
         // Force to re-process data for these websites in the next archive.php cron run
         $invalidatedIdSites = self::getWebsiteIdsToInvalidate();
@@ -219,4 +209,5 @@ class API extends \Piwik\Plugin\API
         }
         return array();
     }
+
 }

@@ -5,8 +5,6 @@
  * @link http://piwik.org
  * @license http://www.gnu.org/licenses/gpl-3.0.html GPL v3 or later
  *
- * @category Piwik
- * @package DataFiles
  */
 
 if (!isset($GLOBALS['Piwik_socialUrl'])) {
@@ -95,7 +93,17 @@ if (!isset($GLOBALS['Piwik_socialUrl'])) {
         'weeworld.com'         => 'WeeWorld',
 
         // Last.fm
+        'last.fm'              => 'Last.fm',
         'lastfm.ru'            => 'Last.fm',
+        'lastfm.de'            => 'Last.fm',
+        'lastfm.es'            => 'Last.fm',
+        'lastfm.fr'            => 'Last.fm',
+        'lastfm.it'            => 'Last.fm',
+        'lastfm.jp'            => 'Last.fm',
+        'lastfm.pl'            => 'Last.fm',
+        'lastfm.com.br'        => 'Last.fm',
+        'lastfm.se'            => 'Last.fm',
+        'lastfm.com.tr'        => 'Last.fm',
 
         // MyHeritage
         'myheritage.com'       => 'MyHeritage',
@@ -129,9 +137,11 @@ if (!isset($GLOBALS['Piwik_socialUrl'])) {
 
         // LiveJournal
         'livejournal.ru'       => 'LiveJournal',
+        'livejournal.com'      => 'LiveJournal',
 
-        // StudiVZ
+        // StudiVZ/MeinVZ
         'studivz.net'          => 'StudiVZ',
+        'meinvz.net'           => 'MeinVZ',
 
         // StackOverflow
         'stackoverflow.com'    => 'StackOverflow',
@@ -179,7 +189,7 @@ if (!isset($GLOBALS['Piwik_socialUrl'])) {
         'multiply.com'         => 'Multiply',
 
         // Foursquare
-        'ru.foursquare.com'    => 'Foursquare',
+        'foursquare.com'    => 'Foursquare',
 
         // vkrugudruzei.ru
         'vkrugudruzei.ru'      => 'vkrugudruzei.ru',
@@ -188,7 +198,7 @@ if (!isset($GLOBALS['Piwik_socialUrl'])) {
         'my.mail.ru'           => 'my.mail.ru',
 
         //MoiKrug.ru
-        'moikrug.ru'           => 'my.mail.ru',
+        'moikrug.ru'           => 'moikrug.ru',
 
         // Reddit
         'reddit.com'           => 'reddit',
@@ -204,10 +214,13 @@ if (!isset($GLOBALS['Piwik_socialUrl'])) {
         't.cn'                 => 'Weibo',
 
         // YouTube
-        'youtu.be'             => 'YouTube',
         'youtube.com'          => 'YouTube',
+        'youtu.be'             => 'YouTube',
 
         // Vimeo
         'vimeo.com'            => 'Vimeo',
+        
+        //tumblr
+        'tumblr.com'           => 'tumblr',
     );
 }

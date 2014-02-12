@@ -5,15 +5,12 @@
  * @link http://piwik.org
  * @license http://www.gnu.org/licenses/gpl-3.0.html GPL v3 or later
  *
- * @category Piwik_Plugins
- * @package Events
  */
 namespace Piwik\Plugins\Events;
 
 use Piwik\Piwik;
 
 /**
- * @package Events
  */
 class Events extends \Piwik\Plugin
 {
@@ -23,7 +20,7 @@ class Events extends \Piwik\Plugin
     public function getListHooksRegistered()
     {
         return array(
-            'API.getSegmentsMetadata'         => 'getSegmentsMetadata',
+            'API.getSegmentDimensionMetadata' => 'getSegmentsMetadata',
         );
     }
 

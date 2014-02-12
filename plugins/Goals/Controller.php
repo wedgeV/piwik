@@ -5,8 +5,6 @@
  * @link http://piwik.org
  * @license http://www.gnu.org/licenses/gpl-3.0.html GPL v3 or later
  *
- * @category Piwik_Plugins
- * @package Goals
  */
 namespace Piwik\Plugins\Goals;
 
@@ -24,7 +22,6 @@ use Piwik\ViewDataTable\Factory;
 
 /**
  *
- * @package Goals
  */
 class Controller extends \Piwik\Plugin\Controller
 {
@@ -35,6 +32,9 @@ class Controller extends \Piwik\Plugin\Controller
      * @var int
      */
     const COUNT_TOP_ROWS_TO_DISPLAY = 3;
+
+    const ECOMMERCE_LOG_SHOW_ORDERS = 1;
+    const ECOMMERCE_LOG_SHOW_ABANDONED_CARTS = 2;
 
     protected $goalColumnNameToLabel = array(
         'avg_order_revenue' => 'General_AverageOrderValue',
@@ -74,14 +74,14 @@ class Controller extends \Piwik\Plugin\Controller
     {
         $view = $this->getGoalReportView($idGoal = Common::getRequestVar('idGoal', null, 'string'));
         $view->displayFullReport = false;
-        echo $view->render();
+        return $view->render();
     }
 
     public function goalReport()
     {
         $view = $this->getGoalReportView($idGoal = Common::getRequestVar('idGoal', null, 'string'));
         $view->displayFullReport = true;
-        echo $view->render();
+        return $view->render();
     }
 
     public function ecommerceReport()
@@ -92,15 +92,21 @@ class Controller extends \Piwik\Plugin\Controller
 
         $view = $this->getGoalReportView($idGoal = Piwik::LABEL_ID_GOAL_IS_ECOMMERCE_ORDER);
         $view->displayFullReport = true;
-        echo $view->render();
+        return $view->render();
     }
 
     public function getEcommerceLog($fetch = false)
     {
         $saveGET = $_GET;
-        $_GET['filterEcommerce'] = Common::getRequestVar('filterEcommerce', 1, 'int');
+        $filterEcommerce = Common::getRequestVar('filterEcommerce', self::ECOMMERCE_LOG_SHOW_ORDERS, 'int');
+        if($filterEcommerce == self::ECOMMERCE_LOG_SHOW_ORDERS) {
+            $segment = urlencode('visitEcommerceStatus==ordered,visitEcommerceStatus==orderedThenAbandonedCart');
+        } else {
+            $segment = urlencode('visitEcommerceStatus==abandonedCart,visitEcommerceStatus==orderedThenAbandonedCart');
+        }
+        $_GET['segment'] = $segment;
+        $_GET['filterEcommerce'] = $filterEcommerce;
         $_GET['widget'] = 1;
-        $_GET['segment'] = 'visitEcommerceStatus!=none';
         $output = FrontController::getInstance()->dispatch('Live', 'getVisitorLog', array($fetch));
         $_GET = $saveGET;
         return $output;
@@ -134,7 +140,7 @@ class Controller extends \Piwik\Plugin\Controller
         $view->idGoal = $idGoal;
         $view->goalName = $goalDefinition['name'];
         $view->goalAllowMultipleConversionsPerVisit = $goalDefinition['allow_multiple'];
-        $view->graphEvolution = $this->getEvolutionGraph(true, array('nb_conversions'), $idGoal);
+        $view->graphEvolution = $this->getEvolutionGraph(array('nb_conversions'), $idGoal);
         $view->nameGraphEvolution = 'Goals.getEvolutionGraph' . $idGoal;
         $view->topDimensions = $this->getTopDimensions($idGoal);
 
@@ -168,14 +174,14 @@ class Controller extends \Piwik\Plugin\Controller
         $view->userCanEditGoals = Piwik::isUserHasAdminAccess($this->idSite);
         $view->ecommerceEnabled = $this->site->isEcommerceEnabled();
         $view->displayFullReport = true;
-        echo $view->render();
+        return $view->render();
     }
 
     public function widgetGoalsOverview()
     {
         $view = $this->getOverviewView();
         $view->displayFullReport = false;
-        echo $view->render();
+        return $view->render();
     }
 
     protected function getOverviewView()
@@ -183,7 +189,7 @@ class Controller extends \Piwik\Plugin\Controller
         $view = new View('@Goals/getOverviewView');
         $this->setGeneralVariablesView($view);
 
-        $view->graphEvolution = $this->getEvolutionGraph(true, array('nb_conversions'));
+        $view->graphEvolution = $this->getEvolutionGraph(array('nb_conversions'));
         $view->nameGraphEvolution = 'GoalsgetEvolutionGraph';
 
         // sparkline for the historical data of the above values
@@ -214,22 +220,22 @@ class Controller extends \Piwik\Plugin\Controller
         return $view;
     }
 
-    public function getLastNbConversionsGraph($fetch = false)
+    public function getLastNbConversionsGraph()
     {
         $view = $this->getLastUnitGraph($this->pluginName, __FUNCTION__, 'Goals.getConversions');
-        return $this->renderView($view, $fetch);
+        return $this->renderView($view);
     }
 
-    public function getLastConversionRateGraph($fetch = false)
+    public function getLastConversionRateGraph()
     {
         $view = $this->getLastUnitGraph($this->pluginName, __FUNCTION__, 'Goals.getConversionRate');
-        return $this->renderView($view, $fetch);
+        return $this->renderView($view);
     }
 
-    public function getLastRevenueGraph($fetch = false)
+    public function getLastRevenueGraph()
     {
         $view = $this->getLastUnitGraph($this->pluginName, __FUNCTION__, 'Goals.getRevenue');
-        return $this->renderView($view, $fetch);
+        return $this->renderView($view);
     }
 
     public function addNewGoal()
@@ -238,10 +244,10 @@ class Controller extends \Piwik\Plugin\Controller
         $this->setGeneralVariablesView($view);
         $view->userCanEditGoals = Piwik::isUserHasAdminAccess($this->idSite);
         $view->onlyShowAddNewGoal = true;
-        echo $view->render();
+        return $view->render();
     }
 
-    public function getEvolutionGraph($fetch = false, array $columns = array(), $idGoal = false)
+    public function getEvolutionGraph(array $columns = array(), $idGoal = false)
     {
         if (empty($columns)) {
             $columns = Common::getRequestVar('columns');
@@ -294,7 +300,7 @@ class Controller extends \Piwik\Plugin\Controller
         $langString = $idGoal ? 'Goals_SingleGoalOverviewDocumentation' : 'Goals_GoalsOverviewDocumentation';
         $view->config->documentation = Piwik::translate($langString, '<br />');
 
-        return $this->renderView($view, $fetch);
+        return $this->renderView($view);
     }
 
     protected function getTopDimensions($idGoal)
@@ -409,14 +415,14 @@ class Controller extends \Piwik\Plugin\Controller
     {
         $preloadAbandonedCart = $cartNbConversions !== false && $conversions == 0;
 
-        $goalReportsByDimension = new ReportsByDimension();
+        $goalReportsByDimension = new ReportsByDimension('Goals');
 
         // add ecommerce reports
         $ecommerceCustomParams = array();
         if ($ecommerce) {
             if ($preloadAbandonedCart) {
                 $ecommerceCustomParams['viewDataTable'] = 'ecommerceAbandonedCart';
-                $ecommerceCustomParams['filterEcommerce'] = 2;
+                $ecommerceCustomParams['filterEcommerce'] = self::ECOMMERCE_LOG_SHOW_ABANDONED_CARTS;
             }
 
             $goalReportsByDimension->addReport(
@@ -425,6 +431,7 @@ class Controller extends \Piwik\Plugin\Controller
                 'Goals_EcommerceReports', 'Goals_ProductName', 'Goals.getItemsName', $ecommerceCustomParams);
             $goalReportsByDimension->addReport(
                 'Goals_EcommerceReports', 'Goals_ProductCategory', 'Goals.getItemsCategory', $ecommerceCustomParams);
+
             $goalReportsByDimension->addReport(
                 'Goals_EcommerceReports', 'Goals_EcommerceLog', 'Goals.getEcommerceLog', $ecommerceCustomParams);
         }
@@ -442,10 +449,10 @@ class Controller extends \Piwik\Plugin\Controller
             foreach ($allReports as $category => $reports) {
                 $categoryText = Piwik::translate('Goals_ViewGoalsBy', $category);
                 foreach ($reports as $report) {
-                    $customParams['viewDataTable'] = 'tableGoals';
-                    if (in_array($report['action'], array('getVisitsUntilConversion', 'getDaysToConversion'))) {
-                        $customParams['viewDataTable'] = 'table';
+                    if(empty($report['viewDataTable'])) {
+                        $report['viewDataTable'] = 'tableGoals';
                     }
+                    $customParams['viewDataTable'] = $report['viewDataTable'];
 
                     $goalReportsByDimension->addReport(
                         $categoryText, $report['name'], $report['module'] . '.' . $report['action'], $customParams);
@@ -460,28 +467,28 @@ class Controller extends \Piwik\Plugin\Controller
     // Report rendering actions
     //
 
-    public function getItemsSku($fetch = false)
+    public function getItemsSku()
     {
-        return Factory::renderReport($this->pluginName, __FUNCTION__, $fetch);
+        return $this->renderReport(__FUNCTION__);
     }
 
-    public function getItemsName($fetch = false)
+    public function getItemsName()
     {
-        return Factory::renderReport($this->pluginName, __FUNCTION__, $fetch);
+        return $this->renderReport(__FUNCTION__);
     }
 
-    public function getItemsCategory($fetch = false)
+    public function getItemsCategory()
     {
-        return Factory::renderReport($this->pluginName, __FUNCTION__, $fetch);
+        return $this->renderReport(__FUNCTION__);
     }
 
-    public function getVisitsUntilConversion($fetch = false)
+    public function getVisitsUntilConversion()
     {
-        return Factory::renderReport($this->pluginName, __FUNCTION__, $fetch);
+        return $this->renderReport(__FUNCTION__);
     }
 
-    public function getDaysToConversion($fetch = false)
+    public function getDaysToConversion()
     {
-        return Factory::renderReport($this->pluginName, __FUNCTION__, $fetch);
+        return $this->renderReport(__FUNCTION__);
     }
 }

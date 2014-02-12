@@ -83,26 +83,26 @@ abstract class IntegrationTestCase extends PHPUnit_Framework_TestCase
         }
     }
 
-    /**
-     * @param bool $installPlugins
-     */
-    protected static function installAndLoadPlugins($installPlugins)
-    {
-        $pluginsManager = \Piwik\Plugin\Manager::getInstance();
-        $plugins = $pluginsManager->readPluginsDirectory();
-
-        $pluginsManager->loadPlugins($plugins);
-        if ($installPlugins)
-        {
-            $pluginsManager->installLoadedPlugins();
-        }
-    }
-
     public static function loadAllPlugins()
     {
+        $plugins = static::getPluginsToLoadDuringTests();
         $pluginsManager = \Piwik\Plugin\Manager::getInstance();
-        $pluginsToLoad = $pluginsManager->getAllPluginsNames();
-        $pluginsManager->loadPlugins($pluginsToLoad);
+
+        // Load all plugins
+        $pluginsManager->loadPlugins($plugins);
+
+        // Install plugins
+        $messages = $pluginsManager->installLoadedPlugins();
+        if(!empty($messages)) {
+//            echo implode("  ----  ", $messages);
+        }
+
+        // Activate them
+        foreach($plugins as $name) {
+            if(!$pluginsManager->isPluginActivated($name)) {
+                $pluginsManager->activatePlugin($name);
+            }
+        }
     }
 
     public static function unloadAllPlugins()
@@ -172,6 +172,7 @@ abstract class IntegrationTestCase extends PHPUnit_Framework_TestCase
         }
 
         include "DataFiles/SearchEngines.php";
+        include "DataFiles/Socials.php";
         include "DataFiles/Languages.php";
         include "DataFiles/Countries.php";
         include "DataFiles/Currencies.php";
@@ -181,11 +182,11 @@ abstract class IntegrationTestCase extends PHPUnit_Framework_TestCase
         static::createAccessInstance();
 
         // We need to be SU to create websites for tests
-        Piwik::setUserIsSuperUser();
+        Piwik::setUserHasSuperUserAccess();
 
         Cache::deleteTrackerCache();
-        if ($installPlugins === null) $installPlugins = $createEmptyDatabase;
-        static::installAndLoadPlugins( $installPlugins);
+
+        static::loadAllPlugins();
 
 
         $_GET = $_REQUEST = array();
@@ -204,6 +205,9 @@ abstract class IntegrationTestCase extends PHPUnit_Framework_TestCase
         
         \Piwik\SettingsPiwik::$cachedKnownSegmentsToArchive = null;
         \Piwik\CacheFile::$invalidateOpCacheBeforeRead = true;
+
+        \Piwik\Plugins\PrivacyManager\IPAnonymizer::deactivate();
+        \Piwik\Plugins\PrivacyManager\DoNotTrackHeaderChecker::deactivate();
     }
 
     public static function tearDownAfterClass()
@@ -230,6 +234,11 @@ abstract class IntegrationTestCase extends PHPUnit_Framework_TestCase
 
         $_GET = $_REQUEST = array();
         Translate::unloadEnglishTranslation();
+    }
+
+    protected static function getPluginsToLoadDuringTests()
+    {
+        return \Piwik\Plugin\Manager::$pluginsToLoadForTests;
     }
 
     public function setUp()
@@ -263,7 +272,8 @@ abstract class IntegrationTestCase extends PHPUnit_Framework_TestCase
         'SegmentEditor',
         'UserCountry.getLocationFromIP',
         'Dashboard',
-        'ExamplePluginTemplate'
+        'ExamplePluginTemplate',
+        'CustomAlerts'
     );
 
     const DEFAULT_USER_PASSWORD = 'nopass';
@@ -546,6 +556,8 @@ abstract class IntegrationTestCase extends PHPUnit_Framework_TestCase
 
                         // find first row w/ subtable
                         $content = $request->process();
+
+                        $this->checkRequestResponse($content);
                         foreach ($content as $row) {
                             if (isset($row['idsubdatatable'])) {
                                 $parametersToSet['idSubtable'] = $row['idsubdatatable'];
@@ -720,15 +732,16 @@ abstract class IntegrationTestCase extends PHPUnit_Framework_TestCase
         }
         $response = $this->normalizePdfContent($response);
 
-        if (empty($compareAgainst)) {
-            file_put_contents($processedFilePath, $response);
-        }
-
         $expected = $this->loadExpectedFile($expectedFilePath);
         $expectedContent = $expected;
         $expected = $this->normalizePdfContent($expected);
 
         if (empty($expected)) {
+
+            if (empty($compareAgainst)) {
+                file_put_contents($processedFilePath, $response);
+            }
+
             print("The expected file is not found at '$expectedFilePath'. The Processed response was:");
             print("\n----------------------------\n\n");
             var_dump($response);
@@ -750,17 +763,6 @@ abstract class IntegrationTestCase extends PHPUnit_Framework_TestCase
             if (strpos($requestUrl, 'API.getProcessedReport') !== false) {
                 $expected = $this->removePrettyDateFromXml($expected);
                 $response = $this->removePrettyDateFromXml($response);
-            }
-
-            // avoid build failure when running just before midnight, generating visits in the future
-            // Note: disabled when 'segment' is a hack:
-            //       instead we should only remove these fields for the specific test that was failing.
-            if(strpos($requestUrl, 'segment') === false) {
-                // Removed the hack on Nov 13
-//                $expected = $this->removeXmlElement($expected, 'sum_daily_nb_uniq_visitors');
-//                $response = $this->removeXmlElement($response, 'sum_daily_nb_uniq_visitors');
-//                $expected = $this->removeXmlElement($expected, 'nb_visits_converted');
-//                $response = $this->removeXmlElement($response, 'nb_visits_converted');
             }
 
             $expected = $this->removeXmlElement($expected, 'visitServerHour');
@@ -791,6 +793,8 @@ abstract class IntegrationTestCase extends PHPUnit_Framework_TestCase
         $expected = str_replace('.11</revenue>', '</revenue>', $expected);
         $response = str_replace('.11</revenue>', '</revenue>', $response);
 
+        file_put_contents($processedFilePath, $response);
+
         try {
             if (strpos($requestUrl, 'format=xml') !== false) {
                 $this->assertXmlStringEqualsXmlString($expected, $response, "Differences with expected in: $processedFilePath");
@@ -802,19 +806,22 @@ abstract class IntegrationTestCase extends PHPUnit_Framework_TestCase
             if (trim($response) == trim($expected)
                 && empty($compareAgainst)
             ) {
-                file_put_contents($processedFilePath, $response);
-
                 if(trim($expectedContent) != trim($expected)) {
                     file_put_contents($expectedFilePath, $expected);
                 }
             }
         } catch (Exception $ex) {
             $this->comparisonFailures[] = $ex;
-
-            if (!empty($compareAgainst)) {
-                file_put_contents($processedFilePath, $response);
-            }
         }
+    }
+
+    protected function checkRequestResponse($response)
+    {
+        if(!is_string($response)) {
+            $response = json_encode($response);
+        }
+        $this->assertTrue(stripos($response, 'error') === false, "error in $response");
+        $this->assertTrue(stripos($response, 'exception') === false, "exception in $response");
     }
 
     protected function removeAllLiveDatesFromXml($input)
@@ -994,6 +1001,11 @@ abstract class IntegrationTestCase extends PHPUnit_Framework_TestCase
             Config::getInstance()->General['browser_archiving_disabled_enforce'] = 0;
         }
 
+        if(!empty($params['hackDeleteRangeArchivesBefore'])) {
+            Db::query('delete from '. Common::prefixTable('archive_numeric_2009_12') . ' where period = 5');
+            Db::query('delete from '. Common::prefixTable('archive_blob_2009_12') . ' where period = 5');
+        }
+
         if (isset($params['language'])) {
             $this->changeLanguage($params['language']);
         }
@@ -1054,6 +1066,8 @@ abstract class IntegrationTestCase extends PHPUnit_Framework_TestCase
             $first = reset($this->comparisonFailures);
             throw $first;
         }
+
+        return count($this->comparisonFailures) == 0;
     }
 
     /**

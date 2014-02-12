@@ -5,8 +5,6 @@
  * @link http://piwik.org
  * @license http://www.gnu.org/licenses/gpl-3.0.html GPL v3 or later
  *
- * @category Piwik_Plugins
- * @package CoreConsole
  */
 
 namespace Piwik\Plugins\CoreConsole\Commands;
@@ -18,7 +16,6 @@ use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 
 /**
- * @package CoreConsole
  */
 class GenerateVisualizationPlugin extends GeneratePlugin
 {
@@ -35,24 +32,23 @@ class GenerateVisualizationPlugin extends GeneratePlugin
 
     protected function execute(InputInterface $input, OutputInterface $output)
     {
-        $pluginName = $this->getPluginName($input, $output);
-        $visualizationName = $this->getVisualizationName($input, $output);
+        $pluginName  = $this->getPluginName($input, $output);
         $description = $this->getPluginDescription($input, $output);
-        $version = $this->getPluginVersion($input, $output);
+        $version     = $this->getPluginVersion($input, $output);
+        $visualizationName = $this->getVisualizationName($input, $output);
 
         $this->generatePluginFolder($pluginName);
-        $this->generatePluginJson($pluginName, $version, $description, false);
 
         $exampleFolder = PIWIK_INCLUDE_PATH . '/plugins/ExampleVisualization';
         $replace = array(
-            'ExampleVisualization' => $pluginName,
-            'SimpleTable' => $visualizationName,
-            'simpleTable' => lcfirst($visualizationName),
-            'Simple Table' => $visualizationName
+            'SimpleTable'  => $visualizationName,
+            'simpleTable'  => lcfirst($visualizationName),
+            'Simple Table' => $visualizationName,
+            'ExampleVisualization'            => $pluginName,
+            'ExampleVisualizationDescription' => $description
         );
 
-        $this->copyTemplateToPlugin($exampleFolder, $pluginName, $replace);
-        $this->generatePluginFile($pluginName);
+        $this->copyTemplateToPlugin($exampleFolder, $pluginName, $replace, $whitelistFiles = array());
 
         $this->writeSuccessMessage($output, array(
              sprintf('Visualization plugin %s %s generated.', $pluginName, $version),

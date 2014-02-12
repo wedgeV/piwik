@@ -5,23 +5,21 @@
  * @link http://piwik.org
  * @license http://www.gnu.org/licenses/gpl-3.0.html GPL v3 or later
  *
- * @category Piwik
- * @package Piwik
  */
 
 namespace Piwik\View;
 
 /**
- * Rendering interface for View and Piwik_Visualization
+ * Rendering interface for all "view" types.
  *
- * @package Piwik
+ * @api
  */
 interface ViewInterface
 {
     /**
-     * Outputs the data.
+     * Returns data.
      *
-     * @return mixed (image, array, html...)
+     * @return string Serialized data, eg, (image, array, html...).
      */
     function render();
 }

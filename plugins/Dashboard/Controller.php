@@ -4,8 +4,6 @@
  *
  * @link     http://piwik.org
  * @license  http://www.gnu.org/licenses/gpl-3.0.html GPL v3 or later
- * @category Piwik_Plugins
- * @package  Dashboard
  */
 namespace Piwik\Plugins\Dashboard;
 
@@ -20,7 +18,6 @@ use Piwik\WidgetsList;
 /**
  * Dashboard Controller
  *
- * @package Dashboard
  */
 class Controller extends \Piwik\Plugin\Controller
 {
@@ -54,19 +51,26 @@ class Controller extends \Piwik\Plugin\Controller
     {
         $view = $this->_getDashboardView('@Dashboard/embeddedIndex');
 
-        echo $view->render();
+        return $view->render();
     }
 
     public function index()
     {
         $view = $this->_getDashboardView('@Dashboard/index');
+        $view->dashboardSettingsControl = new DashboardManagerControl();
         $view->dashboards = array();
         if (!Piwik::isUserIsAnonymous()) {
             $login = Piwik::getCurrentUserLogin();
 
             $view->dashboards = $this->dashboard->getAllDashboards($login);
         }
-        echo $view->render();
+        return $view->render();
+    }
+
+    public function getDashboardSettingsControl()
+    {
+        $view = new DashboardManagerControl();
+        return $view->render();
     }
 
     public function getAvailableWidgets()
@@ -74,7 +78,7 @@ class Controller extends \Piwik\Plugin\Controller
         $this->checkTokenInUrl();
 
         Json::sendHeaderJSON();
-        echo Common::json_encode(WidgetsList::get());
+        return Common::json_encode(WidgetsList::get());
     }
 
     public function getDashboardLayout()
@@ -85,7 +89,7 @@ class Controller extends \Piwik\Plugin\Controller
 
         $layout = $this->getLayout($idDashboard);
 
-        echo $layout;
+        return $layout;
     }
 
     /**
@@ -165,16 +169,14 @@ class Controller extends \Piwik\Plugin\Controller
 
         if (Piwik::isUserIsAnonymous()) {
             Json::sendHeaderJSON();
-            echo '[]';
-
-            return;
+            return '[]';
         }
 
         $login = Piwik::getCurrentUserLogin();
         $dashboards = $this->dashboard->getAllDashboards($login);
 
         Json::sendHeaderJSON();
-        echo Common::json_encode($dashboards);
+        return Common::json_encode($dashboards);
     }
 
     /**
@@ -186,8 +188,7 @@ class Controller extends \Piwik\Plugin\Controller
         $this->checkTokenInUrl();
 
         if (Piwik::isUserIsAnonymous()) {
-            echo '0';
-            return;
+            return '0';
         }
         $user = Piwik::getCurrentUserLogin();
         $nextId = $this->getNextIdDashboard($user);
@@ -205,7 +206,7 @@ class Controller extends \Piwik\Plugin\Controller
         Db::query($query, array($user, $nextId, $name, $layout));
 
         Json::sendHeaderJSON();
-        echo Common::json_encode($nextId);
+        return Common::json_encode($nextId);
     }
 
     private function getNextIdDashboard($login)
@@ -225,9 +226,8 @@ class Controller extends \Piwik\Plugin\Controller
     {
         $this->checkTokenInUrl();
 
-        if (!Piwik::isUserIsSuperUser()) {
-            echo '0';
-            return;
+        if (!Piwik::hasUserSuperUserAccess()) {
+            return '0';
         }
         $login = Piwik::getCurrentUserLogin();
         $name = urldecode(Common::getRequestVar('name', '', 'string'));
@@ -243,8 +243,7 @@ class Controller extends \Piwik\Plugin\Controller
             Db::query($query, array($user, $nextId, $name, $layout));
 
             Json::sendHeaderJSON();
-            echo Common::json_encode($nextId);
-            return;
+            return Common::json_encode($nextId);
         }
     }
 
@@ -279,7 +278,7 @@ class Controller extends \Piwik\Plugin\Controller
     {
         $this->checkTokenInUrl();
 
-        if (Piwik::isUserIsSuperUser()) {
+        if (Piwik::hasUserSuperUserAccess()) {
             $layout = Common::unsanitizeInputValue(Common::getRequestVar('layout'));
             $paramsBind = array('', '1', $layout, $layout);
             $query = sprintf('INSERT INTO %s (login, iddashboard, layout) VALUES (?,?,?) ON DUPLICATE KEY UPDATE layout=?',

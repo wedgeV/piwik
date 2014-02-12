@@ -11,13 +11,16 @@ use Piwik\Date;
 use Piwik\Db;
 use Piwik\DbHelper;
 use Piwik\Plugins\VisitsSummary\API;
+use Piwik\Plugins\UsersManager\API as UsersManagerApi;
+use Piwik\ArchiveProcessor\Rules;
 
 abstract class UITest extends IntegrationTestCase
 {
     const IMAGE_TYPE = 'png';
     const CAPTURE_PROGRAM = 'phantomjs';
-    const SCREENSHOT_GROUP_SIZE = 25;
+    const SCREENSHOT_GROUP_SIZE = 12;
     const DEBUG_IMAGE_MAGICK_COMPARE = true;
+    const GENERATE_ZEITGEIST = false;
     
     private static $recursiveProxyLinkNames = array('libs', 'plugins', 'tests');
     private static $imageMagickAvailable = false;
@@ -47,23 +50,38 @@ abstract class UITest extends IntegrationTestCase
         parent::setUpBeforeClass();
 
         DbHelper::createAnonymousUser();
-        
-        AssetManager::removeMergedAssets();
+        //UsersManagerApi::getInstance()->addUser('superUserLogin', 'testtest', 'hello2@example.org');
+        UsersManagerApi::getInstance()->setSuperUserAccess('superUserLogin', true);
+
+        AssetManager::getInstance()->removeMergedAssets();
         
         // launch archiving so tests don't run out of time
         $date = Date::factory(static::$fixture->dateTime)->toString();
         API::getInstance()->get(static::$fixture->idSite, 'year', $date);
+        API::getInstance()->get(static::$fixture->idSite, 'year', $date, urlencode(static::$fixture->segment));
 
         // make sure processed & expected dirs exist
         self::makeDirsAndLinks();
 
         // run slimerjs/phantomjs w/ all urls so we only invoke it once per 25 entries (travis needs
         // there to be output)
-        $urlsToTest = static::getUrlsForTesting();
+        static::generateScreenshots();
 
+        // check if image magick available
+        self::$imageMagickAvailable = self::checkImageMagickAvailable();
+
+        // remove existing diffs
+        self::removeExistingDiffs();
+    }
+
+    public static function generateScreenshots()
+    {
+        $urlsToTest = static::getUrlsForTesting();
+        
         reset($urlsToTest);
         for ($i = 0; $i < count($urlsToTest); $i += self::SCREENSHOT_GROUP_SIZE) {
             $urls = array();
+            echo "Generating screenshots...";
             for ($j = $i; $j != $i + self::SCREENSHOT_GROUP_SIZE && $j < count($urlsToTest); ++$j) {
                 $currentTest = current($urlsToTest);
 
@@ -74,21 +92,33 @@ abstract class UITest extends IntegrationTestCase
                     list($name, $urlQuery, $jsToTest) = $currentTest;
                 }
 
+                $testUrl = self::getProxyUrl() . $urlQuery;
+
+                // Screenshot morpheus
                 list($processedScreenshotPath, $expectedScreenshotPath) = self::getProcessedAndExpectedScreenshotPaths($name);
-                $urls[] = array($processedScreenshotPath, self::getProxyUrl() . $urlQuery, $jsToTest);
+                $urls[] = array($processedScreenshotPath, $testUrl, $jsToTest);
+
+                // Screenshot Zeitgeist
+                if (self::GENERATE_ZEITGEIST) {
+                    list($processedScreenshotPath, $expectedScreenshotPath) = self::getProcessedAndExpectedScreenshotPaths($name, "Zeitgeist/");
+                    $enableZeitgeist = "&zeitgeist=1";
+                    // Add the parameter to the query string, not the hash
+                    if(($hash = strpos($testUrl, '#')) !== false) {
+                        $testUrl = substr($testUrl, 0, $hash) . $enableZeitgeist . substr($testUrl, $hash);
+                    } else {
+                        $testUrl .= $enableZeitgeist;
+                    }
+
+                    $urls[] = array($processedScreenshotPath, $testUrl, $jsToTest);
+                }
 
                 next($urlsToTest);
+                echo ".";
             }
-            
-            echo "Generating screenshots...\n";
+            echo "\n";
+
             self::runCaptureProgram($urls);
         }
-
-        // check if image magick available
-        self::$imageMagickAvailable = self::checkImageMagickAvailable();
-
-        // remove existing diffs
-        self::removeExistingDiffs();
     }
 
     public static function removeExistingDiffs()
@@ -113,7 +143,7 @@ abstract class UITest extends IntegrationTestCase
         
         parent::tearDownAfterClass();
     }
-    
+
     public function setUp()
     {
         parent::setUp();
@@ -130,7 +160,7 @@ abstract class UITest extends IntegrationTestCase
         Db::get()->closeConnection();
     }
     
-    private static function runCaptureProgram($urlInfo)
+    protected static function runCaptureProgram($urlInfo)
     {
         file_put_contents(PIWIK_INCLUDE_PATH . '/tmp/urls.txt', json_encode($urlInfo));
         $cmd = self::CAPTURE_PROGRAM . " \"" . PIWIK_INCLUDE_PATH . "/tests/resources/screenshot-capture/capture.js\" 2>&1";
@@ -164,35 +194,7 @@ abstract class UITest extends IntegrationTestCase
     {
         list($processedPath, $expectedPath) = self::getProcessedAndExpectedScreenshotPaths($name);
 
-        if (!file_exists($processedPath)) {
-            $this->fail("failed to generate screenshot for '$name'.");
-            return;
-        }
-
-        $processed = file_get_contents($processedPath);
-        
-        if (!file_exists($expectedPath)) {
-            $this->fail("expected screenshot for '$name' test is missing.
-Generated screenshot: $processedPath");
-            return;
-        }
-        
-        $expected = file_get_contents($expectedPath);
-        if ($expected != $processed) {
-            self::$failureScreenshotNames[] = $name;
-
-            $diffPath = self::getScreenshotDiffPath($name);
-
-            echo "\nFail: generated screenshot does not match expected for '$name'.
-Url to reproduce: $urlQuery
-Generated screenshot: $processedPath
-Expected screenshot: $expectedPath
-Screenshot diff: $diffPath\n";
-
-            $this->saveImageDiff($expectedPath, $processedPath, $diffPath);
-        }
-
-        $this->assertTrue($expected == $processed, "screenshot compare failed for '$processedPath'");
+        $this->compareScreenshotAgainstExpected($name, $urlQuery, $processedPath, $expectedPath);
     }
 
     private function saveImageDiff($expectedPath, $processedPath, $diffPath)
@@ -228,14 +230,14 @@ Screenshot diff: $diffPath\n";
         return $result === 0 || $result === 1;
     }
 
-    private static function getProcessedAndExpectedScreenshotPaths($name)
+    protected static function getProcessedAndExpectedScreenshotPaths($name, $pathSuffix = '')
     {
         list($processedDir, $expectedDir) = self::getProcessedAndExpectedDirs();
 
         $outputPrefix = static::getOutputPrefix();
 
-        $processedScreenshotPath = $processedDir . $outputPrefix . '_' . "$name." . self::IMAGE_TYPE;
-        $expectedScreenshotPath = $expectedDir . $outputPrefix . '_' . "$name." . self::IMAGE_TYPE;
+        $processedScreenshotPath = $processedDir . $pathSuffix . $outputPrefix . '_' . "$name." . self::IMAGE_TYPE;
+        $expectedScreenshotPath = $expectedDir . $pathSuffix . $outputPrefix . '_' . "$name." . self::IMAGE_TYPE;
 
         return array($processedScreenshotPath, $expectedScreenshotPath);
     }
@@ -262,6 +264,11 @@ Screenshot diff: $diffPath\n";
             }
         }
 
+        self::createProxySymlinks();
+    }
+
+    private static function createProxySymlinks()
+    {
         foreach (self::$recursiveProxyLinkNames as $linkName) {
             $linkPath = PIWIK_INCLUDE_PATH . '/tests/PHPUnit/proxy/' . $linkName;
             if (!file_exists($linkPath)) {
@@ -282,9 +289,8 @@ Screenshot diff: $diffPath\n";
 
     private static function getScreenshotDiffPath($name)
     {
-        $outputPrefix = static::getOutputPrefix();
         $diffDir = self::getScreenshotDiffDir();
-        return $diffDir . "/" . $outputPrefix . '_' . $name . '.' . self::IMAGE_TYPE;
+        return $diffDir . "/" . $name . '.' . self::IMAGE_TYPE;
     }
 
     private static function getScreenshotDiffDir()
@@ -294,8 +300,8 @@ Screenshot diff: $diffPath\n";
 
     private static function outputDiffViewerHtmlFile()
     {
+        $diffViewerPath = self::getScreenshotDiffDir() . '/diffviewer.html';
         if (!empty(self::$failureScreenshotNames)) {
-            $diffViewerPath = self::getScreenshotDiffDir() . '/diffviewer.html';
             echo "\nFailures encountered. View all diffs at:
 $diffViewerPath
 
@@ -309,7 +315,6 @@ If processed screenshots are correct, you can copy the generated screenshots to 
 
         $diffViewerEntries = array();
         foreach (self::$failureScreenshotNames as $name) {
-            $name = static::getOutputPrefix() . '_' . $name;
             $file = $name . '.png';
 
             $diffFileOrError = $file;
@@ -357,6 +362,46 @@ If processed screenshots are correct, you can copy the generated screenshots to 
 </body>
 </html>';
         
-        file_put_contents($diffDir . '/diffviewer.html', $diffViewerHtml);
+        file_put_contents($diffViewerPath, $diffViewerHtml);
+    }
+
+    /**
+     * @param $name
+     * @param $urlQuery
+     * @param $processedPath
+     * @param $expectedPath
+     */
+    protected function compareScreenshotAgainstExpected($name, $urlQuery, $processedPath, $expectedPath)
+    {
+        if (!file_exists($processedPath)) {
+            $this->fail("failed to generate screenshot for '$name'.");
+            return;
+        }
+
+        $processed = file_get_contents($processedPath);
+
+        if (!file_exists($expectedPath)) {
+            $this->fail("expected screenshot for '$name' test is missing.
+Generated screenshot: $processedPath");
+            return;
+        }
+
+        $expected = file_get_contents($expectedPath);
+        if ($expected != $processed) {
+            $fullName = static::getOutputPrefix() . '_' . $name;
+            self::$failureScreenshotNames[] = $fullName;
+
+            $diffPath = self::getScreenshotDiffPath($fullName);
+
+            echo "\nFail: generated screenshot does not match expected for '$name'.
+Url to reproduce: $urlQuery
+Generated screenshot: $processedPath
+Expected screenshot: $expectedPath
+Screenshot diff: $diffPath\n";
+
+            $this->saveImageDiff($expectedPath, $processedPath, $diffPath);
+        }
+
+        $this->assertTrue($expected == $processed, "screenshot compare failed for '$processedPath'");
     }
 }

@@ -5,8 +5,6 @@
  * @link http://piwik.org
  * @license http://www.gnu.org/licenses/gpl-3.0.html GPL v3 or later
  *
- * @category Piwik
- * @package Piwik
  */
 namespace Piwik;
 
@@ -15,14 +13,14 @@ use Piwik\Tracker\GoalManager;
 /**
  * Contains helper function that format numerical values in different ways.
  * 
- * @package Piwik
  * @api
  */
 class MetricsFormatter
 {
     /**
      * Returns a prettified string representation of a number. The result will have
-     * thousands separators and a decimal point specific to the current locale.
+     * thousands separators and a decimal point specific to the current locale, eg,
+     * `'1,000,000.05'` or `'1.000.000,05'`.
      *
      * @param number $value
      * @return string
@@ -55,6 +53,12 @@ class MetricsFormatter
     {
         $numberOfSeconds = $round ? (int)$numberOfSeconds : (float)$numberOfSeconds;
 
+        $isNegative = false;
+        if ($numberOfSeconds < 0) {
+            $numberOfSeconds = -1 * $numberOfSeconds;
+            $isNegative = true;
+        }
+
         // Display 01:45:17 time format
         if ($displayTimeAsSentence === false) {
             $hours = floor($numberOfSeconds / 3600);
@@ -65,9 +69,13 @@ class MetricsFormatter
             if ($centiSeconds) {
                 $time .= '.' . sprintf("%02s", $centiSeconds);
             }
+            if ($isNegative) {
+                $time = '-' . $time;
+            }
             return $time;
         }
         $secondsInYear = 86400 * 365.25;
+
         $years = floor($numberOfSeconds / $secondsInYear);
         $minusYears = $numberOfSeconds - $years * $secondsInYear;
         $days = floor($minusYears / 86400);
@@ -93,6 +101,11 @@ class MetricsFormatter
         } else {
             $return = sprintf(Piwik::translate('General_Seconds'), $seconds);
         }
+
+        if ($isNegative) {
+            $return = '-' . $return;
+        }
+
         if ($isHtml) {
             return str_replace(' ', '&nbsp;', $return);
         }

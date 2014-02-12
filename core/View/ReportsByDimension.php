@@ -5,12 +5,11 @@
  * @link http://piwik.org
  * @license http://www.gnu.org/licenses/gpl-3.0.html GPL v3 or later
  *
- * @category Piwik
- * @package SmartyPlugins
  */
 namespace Piwik\View;
 
 use Piwik\FrontController;
+use Piwik\Piwik;
 use Piwik\Url;
 use Piwik\View;
 
@@ -25,11 +24,14 @@ class ReportsByDimension extends View
 {
     /**
      * Constructor.
+     *
+     * @param string $id
      */
-    public function __construct()
+    public function __construct($id)
     {
         parent::__construct('@CoreHome/ReportsByDimension/_reportsByDimension');
         $this->dimensionCategories = array();
+        $this->id = $id;
     }
 
     /**
@@ -72,12 +74,30 @@ class ReportsByDimension extends View
     }
 
     /**
+     * @return string The ID specified in the constructor, usually the plugin name
+     */
+    public function getId()
+    {
+        return $this->id;
+    }
+
+    /**
      * Renders this view.
      *
      * @return string The rendered view.
      */
     public function render()
     {
+        /**
+         * Triggered before rendering {@link ReportsByDimension} views.
+         * 
+         * Plugins can use this event to configure {@link ReportsByDimension} instances by
+         * adding or removing reports to display.
+         * 
+         * @param ReportsByDimension $this The view instance.
+         */
+        Piwik::postEvent('View.ReportsByDimension.render', array($this));
+
         $this->firstReport = "";
 
         // if there are reports & report categories added, render the first one so we can

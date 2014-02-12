@@ -5,8 +5,6 @@
  * @link http://piwik.org
  * @license http://www.gnu.org/licenses/gpl-3.0.html GPL v3 or later
  *
- * @category Piwik
- * @package Piwik
  */
 namespace Piwik\DataTable\Filter;
 
@@ -17,7 +15,7 @@ use Piwik\Piwik;
 use Piwik\Tracker\GoalManager;
 
 /**
- * Adds the Goal related metrics to a DataTable using metrics that already exist.
+ * Adds goal related metrics to a {@link DataTable} using metrics that already exist.
  *
  * Metrics added are:
  * - **revenue_per_visit**: total goal and ecommerce revenue / nb_visits
@@ -42,15 +40,13 @@ use Piwik\Tracker\GoalManager;
  * Adding the **filter_update_columns_when_show_all_goals** query parameter to
  * an API request will trigger the execution of this Filter.
  * 
- * Note: This filter must be called before [ReplaceColumnNames](#) is called.
+ * _Note: This filter must be called before {@link ReplaceColumnNames} is called._
  * 
  * **Basic usage example**
  * 
  *     $dataTable->filter('AddColumnsProcessedMetricsGoal',
  *         array($enable = true, $idGoal = Piwik::LABEL_ID_GOAL_IS_ECOMMERCE_ORDER));
  * 
- * @package Piwik
- * @subpackage DataTable
  * @api
  */
 class AddColumnsProcessedMetricsGoal extends AddColumnsProcessedMetrics
@@ -90,7 +86,7 @@ class AddColumnsProcessedMetricsGoal extends AddColumnsProcessedMetrics
     }
 
     /**
-     * Adds the processed metrics. See [AddColumnsProcessedMetrics](#AddColumnsProcessedMetrics) for
+     * Adds the processed metrics. See {@link AddColumnsProcessedMetrics} for
      * more information.
      *
      * @param DataTable $table
@@ -111,14 +107,14 @@ class AddColumnsProcessedMetricsGoal extends AddColumnsProcessedMetrics
             $goals = $this->getColumn($currentColumns, Metrics::INDEX_GOALS);
             if ($goals) {
                 $revenue = 0;
-                foreach ($goals as $goalId => $columnValue) {
+                foreach ($goals as $goalId => $goalMetrics) {
                     if ($goalId == Piwik::LABEL_ID_GOAL_IS_ECOMMERCE_CART) {
                         continue;
                     }
                     if ($goalId >= GoalManager::IDGOAL_ORDER
                         || $goalId == Piwik::LABEL_ID_GOAL_IS_ECOMMERCE_ORDER
                     ) {
-                        $revenue += (int)$this->getColumn($columnValue, Metrics::INDEX_GOAL_REVENUE, Metrics::$mappingFromIdToNameGoal);
+                        $revenue += (int)$this->getColumn($goalMetrics, Metrics::INDEX_GOAL_REVENUE, Metrics::$mappingFromIdToNameGoal);
                     }
                 }
 
@@ -144,7 +140,7 @@ class AddColumnsProcessedMetricsGoal extends AddColumnsProcessedMetrics
                 // - conversion rate
                 // - conversions
                 // - revenue per visit
-                foreach ($goals as $goalId => $columnValue) {
+                foreach ($goals as $goalId => $goalMetrics) {
                     $goalId = str_replace("idgoal=", "", $goalId);
                     if (($this->processOnlyIdGoal > self::GOALS_FULL_TABLE
                             || $this->isEcommerce)
@@ -152,7 +148,7 @@ class AddColumnsProcessedMetricsGoal extends AddColumnsProcessedMetrics
                     ) {
                         continue;
                     }
-                    $conversions = (int)$this->getColumn($columnValue, Metrics::INDEX_GOAL_NB_CONVERSIONS, Metrics::$mappingFromIdToNameGoal);
+                    $conversions = (int)$this->getColumn($goalMetrics, Metrics::INDEX_GOAL_NB_CONVERSIONS, Metrics::$mappingFromIdToNameGoal);
 
                     // Goal Conversion rate
                     $name = 'goal_' . $goalId . '_conversion_rate';
@@ -178,7 +174,7 @@ class AddColumnsProcessedMetricsGoal extends AddColumnsProcessedMetrics
                     // Goal Revenue per visit
                     $name = 'goal_' . $goalId . '_revenue_per_visit';
                     // See comment above for $revenuePerVisit
-                    $goalRevenue = (float)$this->getColumn($columnValue, Metrics::INDEX_GOAL_REVENUE, Metrics::$mappingFromIdToNameGoal);
+                    $goalRevenue = (float)$this->getColumn($goalMetrics, Metrics::INDEX_GOAL_REVENUE, Metrics::$mappingFromIdToNameGoal);
                     $revenuePerVisit = round($goalRevenue / ($nbVisits == 0 ? $conversions : $nbVisits), $roundingPrecision);
                     $newColumns[$name] = $revenuePerVisit;
                     $expectedColumns[$name] = true;
@@ -197,7 +193,7 @@ class AddColumnsProcessedMetricsGoal extends AddColumnsProcessedMetrics
 
                         // Items qty
                         $name = 'goal_' . $goalId . '_items';
-                        $newColumns[$name] = $this->getColumn($columnValue, Metrics::INDEX_GOAL_ECOMMERCE_ITEMS, Metrics::$mappingFromIdToNameGoal);
+                        $newColumns[$name] = $this->getColumn($goalMetrics, Metrics::INDEX_GOAL_ECOMMERCE_ITEMS, Metrics::$mappingFromIdToNameGoal);
                         $expectedColumns[$name] = true;
                     }
                 }

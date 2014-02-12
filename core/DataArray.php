@@ -5,8 +5,6 @@
  * @link http://piwik.org
  * @license http://www.gnu.org/licenses/gpl-3.0.html GPL v3 or later
  *
- * @category Piwik
- * @package Piwik
  */
 namespace Piwik;
 
@@ -287,6 +285,12 @@ class DataArray
                 $revenue = round($revenue);
             }
             $values[Metrics::INDEX_REVENUE] = $revenue;
+
+            // if there are no "visit" column, we force one to prevent future complications
+            // eg. This helps the setDefaultColumnsToDisplay() call
+            if(!isset($values[Metrics::INDEX_NB_VISITS])) {
+                $values[Metrics::INDEX_NB_VISITS] = 0;
+            }
         }
     }
 

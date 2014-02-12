@@ -5,8 +5,6 @@
  * @link http://piwik.org
  * @license http://www.gnu.org/licenses/gpl-3.0.html GPL v3 or later
  *
- * @category Piwik
- * @package Piwik
  */
 
 namespace Piwik;
@@ -16,7 +14,6 @@ use Exception;
 /**
  * Piwik auto loader
  *
- * @package Piwik
  */
 class Loader
 {
@@ -46,15 +43,18 @@ class Loader
             return $class;
         }
 
-        $class = self::removePrefix($class, 'Piwik/');
-        $class = self::removePrefix($class, 'Plugins/');
+        $class = self::removeFirstMatchingPrefix($class, array('/Piwik/', 'Piwik/'));
+        $class = self::removeFirstMatchingPrefix($class, array('/Plugins/', 'Plugins/'));
+
         return $class;
     }
 
-    protected static function removePrefix($class, $vendorPrefixToRemove)
+    protected static function removeFirstMatchingPrefix($class, $vendorPrefixesToRemove)
     {
-        if (strpos($class, $vendorPrefixToRemove) === 0) {
-            return substr($class, strlen($vendorPrefixToRemove));
+        foreach ($vendorPrefixesToRemove as $prefix) {
+            if (strpos($class, $prefix) === 0) {
+                return substr($class, strlen($prefix));
+            }
         }
 
         return $class;

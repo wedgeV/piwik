@@ -5,8 +5,6 @@
  * @link http://piwik.org
  * @license http://www.gnu.org/licenses/gpl-3.0.html GPL v3 or later
  *
- * @category Piwik_Plugins
- * @package CoreConsole
  */
 
 namespace Piwik\Plugins\CoreConsole\Commands;
@@ -17,7 +15,6 @@ use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 
 /**
- * @package CoreConsole
  */
 class GenerateTest extends GeneratePluginBase
 {
@@ -26,31 +23,44 @@ class GenerateTest extends GeneratePluginBase
         $this->setName('generate:test')
             ->setDescription('Adds a test to an existing plugin')
             ->addOption('pluginname', null, InputOption::VALUE_REQUIRED, 'The name of an existing plugin')
-            ->addOption('testname', null, InputOption::VALUE_REQUIRED, 'The name of the test you want to create')
-            ->addOption('testtype', 't', InputOption::VALUE_OPTIONAL, 'Whether you want to create a "unit", "integration" or "database" test', 'unit');
+            ->addOption('testname', null, InputOption::VALUE_REQUIRED, 'The name of the test to create')
+            ->addOption('testtype', null, InputOption::VALUE_REQUIRED, 'Whether you want to create a "unit", "integration" or "database" test');
     }
 
     protected function execute(InputInterface $input, OutputInterface $output)
     {
         $pluginName = $this->getPluginName($input, $output);
         $testName   = $this->getTestName($input, $output);
-        $testClass  = $this->getTestClass($input);
+        $testType = $this->getTestType($input, $output);
 
         $exampleFolder  = PIWIK_INCLUDE_PATH . '/plugins/ExamplePlugin';
         $replace        = array(
             'ExamplePlugin'               => $pluginName,
             'SimpleTest'                  => $testName,
-            '\PHPUnit_Framework_TestCase' => $testClass,
-            '@group Plugins'              => '@group ' . $this->getTestType($input)
+            'SimpleIntegrationTest'       => $testName,
+            '@group Plugins'              => '@group ' . $testType
          );
 
-        $whitelistFiles = array('/tests', '/tests/SimpleTest.php');
+        $testClass  = $this->getTestClass($testType);
+        if(!empty($testClass)) {
+            $replace['\PHPUnit_Framework_TestCase'] = $testClass;
 
+        }
+
+        $whitelistFiles = $this->getTestFilesWhitelist($testType);
         $this->copyTemplateToPlugin($exampleFolder, $pluginName, $replace, $whitelistFiles);
 
         $this->writeSuccessMessage($output, array(
              sprintf('Test %s for plugin %s generated.', $testName, $pluginName),
-             'You can now start writing beautiful tests',
+             'You can now start writing beautiful tests!',
+
+        ));
+
+        $this->writeSuccessMessage($output, array(
+             'To run all your plugin tests, execute the command: ',
+             sprintf('./console tests:run %s', $pluginName),
+             'To run only this test: ',
+             sprintf('./console tests:run %s', $testName),
              'Enjoy!'
         ));
     }
@@ -67,7 +77,7 @@ class GenerateTest extends GeneratePluginBase
 
         $validate = function ($testname) {
             if (empty($testname)) {
-                throw new \InvalidArgumentException('You have to enter a test name');
+                throw new \InvalidArgumentException('You have to enter a valid test name ');
             }
 
             return $testname;
@@ -92,57 +102,88 @@ class GenerateTest extends GeneratePluginBase
     /**
      * @param InputInterface $input
      * @param OutputInterface $output
-     * @return string
+     * @return array
      * @throws \RunTimeException
      */
-    private function getPluginName(InputInterface $input, OutputInterface $output)
+    protected function getPluginName(InputInterface $input, OutputInterface $output)
     {
         $pluginNames = $this->getPluginNames();
+        $invalidName = 'You have to enter the name of an existing plugin';
 
-        $validate = function ($pluginName) use ($pluginNames) {
-            if (!in_array($pluginName, $pluginNames)) {
-                throw new \InvalidArgumentException('You have to enter the name of an existing plugin');
+        return $this->askPluginNameAndValidate($input, $output, $pluginNames, $invalidName);
+    }
+
+    /**
+     * @param InputInterface $input
+     * @return string
+     */
+    private function getTestClass($testType)
+    {
+        if ('Database' == $testType) {
+            return '\DatabaseTestCase';
+        }
+        if ('Unit' == $testType) {
+            return '\PHPUnit_Framework_TestCase';
+        }
+        return false;
+    }
+
+    public function getValidTypes()
+    {
+        return array('unit', 'integration', 'database');
+    }
+
+    /**
+     * @param InputInterface $input
+     * @param OutputInterface $output
+     * @return string Unit, Integration, Database
+     */
+    private function getTestType(InputInterface $input, OutputInterface $output)
+    {
+        $testtype = $input->getOption('testtype');
+
+        $self = $this;
+
+        $validate = function ($testtype) use ($self) {
+            if (empty($testtype) || !in_array($testtype, $self->getValidTypes())) {
+                throw new \InvalidArgumentException('You have to enter a valid test type: ' . implode(" or ", $self->getValidTypes()));
             }
-
-            return $pluginName;
+            return $testtype;
         };
 
-        $pluginName = $input->getOption('pluginname');
-
-        if (empty($pluginName)) {
-            $dialog = $this->getHelperSet()->get('dialog');
-            $pluginName = $dialog->askAndValidate($output, 'Enter the name of your plugin: ', $validate, false, null, $pluginNames);
+        if (empty($testtype)) {
+            $dialog   = $this->getHelperSet()->get('dialog');
+            $testtype = $dialog->askAndValidate($output, 'Enter the type of the test to generate ('. implode(", ", $this->getValidTypes()).'): ', $validate);
         } else {
-            $validate($pluginName);
+            $validate($testtype);
         }
 
-        $pluginName = ucfirst($pluginName);
-
-        return $pluginName;
+        $testtype = ucfirst($testtype);
+        return $testtype;
     }
 
     /**
-     * @param InputInterface $input
-     * @return string
+     * @return array
      */
-    private function getTestClass(InputInterface $input)
+    protected function getTestFilesWhitelist($testType)
     {
-        $testClass = '\PHPUnit_Framework_TestCase';
-        if ('integration' == $input->getOption('testtype')) {
-            $testClass = '\IntegrationTestCase';
-        } elseif ('database' == $input->getOption('testtype')) {
-            $testClass = '\DatabaseTestCase';
+        if('Integration' == $testType) {
+            return array(
+                '/.gitignore',
+                '/tests',
+                '/tests/SimpleIntegrationTest.php',
+                '/tests/expected',
+                '/tests/expected/test___API.get_day.xml',
+                '/tests/expected/test___Goals.getItemsSku_day.xml',
+                '/tests/processed',
+                '/tests/processed/.gitignore',
+                '/tests/fixtures',
+                '/tests/fixtures/SimpleFixtureTrackFewVisits.php'
+            );
         }
-
-        return $testClass;
-    }
-
-    /**
-     * @param InputInterface $input
-     * @return string
-     */
-    private function getTestType(InputInterface $input)
-    {
-        return 'unit' == $input->getOption('testtype') ? 'Plugins' : 'Integration';
+        return array(
+            '/tests',
+            '/tests/SimpleTest.php'
+        );
     }
 }

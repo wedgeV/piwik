@@ -5,8 +5,6 @@
  * @link http://piwik.org
  * @license http://www.gnu.org/licenses/gpl-3.0.html GPL v3 or later
  *
- * @category Piwik
- * @package Piwik
  */
 
 namespace Piwik\ArchiveProcessor;
@@ -14,13 +12,14 @@ namespace Piwik\ArchiveProcessor;
 use Piwik\Date;
 use Piwik\Log;
 use Piwik\Period;
+use Piwik\Piwik;
 use Piwik\Segment;
 use Piwik\Site;
 
 /**
- * An ArchiveProcessor processes data for an Archive determined by these Parameters: website, period and segment.
- *
- * @api
+ * Contains the analytics parameters for the reports that are currently being archived. The analytics
+ * parameters include the **website** the reports describe, the **period** of time the reports describe
+ * and the **segment** used to limit the visit set.
  */
 class Parameters
 {
@@ -44,6 +43,11 @@ class Parameters
      */
     private $requestedPlugin = false;
 
+    /**
+     * Constructor.
+     * 
+     * @ignore
+     */
     public function __construct(Site $site, Period $period, Segment $segment)
     {
         $this->site = $site;
@@ -68,7 +72,7 @@ class Parameters
     }
 
     /**
-     * Returns the period we computing statistics for.
+     * Returns the period we are computing statistics for.
      *
      * @return Period
      * @api
@@ -82,6 +86,7 @@ class Parameters
      * Returns the array of Period which make up this archive.
      *
      * @return \Piwik\Period[]
+     * @ignore
      */
     public function getSubPeriods()
     {
@@ -93,11 +98,17 @@ class Parameters
 
     /**
      * @return array
+     * @ignore
      */
     public function getIdSites()
     {
         $idSite = $this->getSite()->getId();
-        return array($idSite);
+
+        $idSites = array($idSite);
+
+        Piwik::postEvent('ArchiveProcessor.Parameters.getIdSites', array(&$idSites, $this->getPeriod()));
+
+        return $idSites;
     }
 
     /**
@@ -123,7 +134,7 @@ class Parameters
     }
 
     /**
-     * Returns the Date end of this period.
+     * Returns the end day of the period in the site's timezone.
      *
      * @return Date
      */
@@ -133,7 +144,7 @@ class Parameters
     }
 
     /**
-     * Returns the Date start of this period.
+     * Returns the start day of the period in the site's timezone.
      *
      * @return Date
      */
@@ -164,7 +175,7 @@ class Parameters
             $temporary = 'temporary archive';
         }
         Log::verbose(
-            "'%s, idSite = %d (%s), segment '%s', report = '%s', UTC datetime [%s -> %s]",
+            "%s archive, idSite = %d (%s), segment '%s', report = '%s', UTC datetime [%s -> %s]",
             $this->getPeriod()->getLabel(),
             $this->getSite()->getId(),
             $temporary,
@@ -174,5 +185,4 @@ class Parameters
             $this->getDateEnd()->getDateEndUTC()
         );
     }
-
 }

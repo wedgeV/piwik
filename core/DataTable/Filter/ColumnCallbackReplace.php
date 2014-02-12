@@ -5,12 +5,10 @@
  * @link http://piwik.org
  * @license http://www.gnu.org/licenses/gpl-3.0.html GPL v3 or later
  *
- * @category Piwik
- * @package Piwik
  */
 namespace Piwik\DataTable\Filter;
 
-use Piwik\DataTable\Filter;
+use Piwik\DataTable\BaseFilter;
 use Piwik\DataTable;
 use Piwik\DataTable\Row;
 
@@ -31,10 +29,8 @@ use Piwik\DataTable\Row;
  *     // label, url and truncate_length are columns in $dataTable
  *     $dataTable->filter('ColumnCallbackReplace', array('label', 'url'), $truncateString, null, array('truncate_length'));
  * 
- * @package Piwik
- * @subpackage DataTable
  */
-class ColumnCallbackReplace extends Filter
+class ColumnCallbackReplace extends BaseFilter
 {
     private $columnsToFilter;
     private $functionToApply;
@@ -70,7 +66,7 @@ class ColumnCallbackReplace extends Filter
     }
 
     /**
-     * See [ColumnCallbackReplace](#).
+     * See {@link ColumnCallbackReplace}.
      *
      * @param DataTable $table
      */

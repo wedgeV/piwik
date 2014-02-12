@@ -5,8 +5,6 @@
  * @link http://piwik.org
  * @license http://www.gnu.org/licenses/gpl-3.0.html GPL v3 or later
  *
- * @category Piwik_Plugins
- * @package DBStats
  */
 namespace Piwik\Plugins\DBStats;
 
@@ -230,8 +228,7 @@ class MySQLMetadataProvider
             // if option exists && !$forceCache, use the cached data, otherwise create the
             $cachedData = Option::get($dataTableOptionName);
             if ($cachedData !== false && !$forceCache) {
-                $table = new DataTable();
-                $table->addRowsFromSerializedArray($cachedData);
+                $table = DataTable::fromSerializedArray($cachedData);
             } else {
                 // otherwise, create data table & cache it
                 $sql = "SELECT name as 'label', COUNT(*) as 'row_count'$extraCols FROM {$status['Name']} GROUP BY name";

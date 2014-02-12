@@ -5,8 +5,6 @@
  * @link http://piwik.org
  * @license http://www.gnu.org/licenses/gpl-3.0.html GPL v3 or later
  *
- * @category Piwik_Plugins
- * @package ExampleVisualization
  */
 
 namespace Piwik\Plugins\ExampleVisualization;
@@ -45,7 +43,7 @@ class SimpleTable extends Visualization
         // $this->dateTable->filter($nameOrClosure, $parameters);
     }
 
-    public function afterAllFilteresAreApplied()
+    public function afterAllFiltersAreApplied()
     {
         // this hook is executed after the data table is loaded and after all filteres are applied.
         // format your data here that you want to pass to the view

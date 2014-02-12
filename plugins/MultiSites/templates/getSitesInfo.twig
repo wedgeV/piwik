@@ -2,11 +2,12 @@
 
 {% block content %}
 
-    <div class="top_controls_inner">
-        {% include "@CoreHome/_periodSelect.twig" %}
-    </div>
+<div class="top_controls">
+    {% include "@CoreHome/_periodSelect.twig" %}
+    {% include "@CoreHome/_headerMessage.twig" %}
+</div>
 
-<div id="multisites" ng-controller="MultiSitesCtrl">
+<div class="pageWrap" id="multisites" ng-controller="MultiSitesCtrl">
     <div id="main">
         <script type="text/javascript">
             function MultiSitesCtrl($scope)
@@ -25,37 +26,11 @@
                 );
                 {% endfor %}
 
-                $scope.reverse = '{{ order }}' == 'desc' ? true : false;
-                $scope.searchedWebsites = allSites;
-                $scope.websites = allSites;
-                $scope.predicate = '{{ orderBy }}';
-                $scope.currentPage = 0;
-                $scope.pageSize = {{ limit }} / 5;
-                $scope.evolutionSelector = '{{ evolutionBy }}';
-                $scope.numberOfPages=function(){
-                    return Math.ceil($scope.searchedWebsites.length/$scope.pageSize);
-                }
-                $scope.sparklineImage=function(website){
-                    var append = '';
-                    var token_auth = broadcast.getValueFromUrl('token_auth');
-                    if (token_auth.length) {
-                        append = '&token_auth=' + token_auth;
-                    }
-
-                    return '?module=MultiSites&action=getEvolutionGraph&period={{ period }}&date={{ dateSparkline }}&evolutionBy=' +$scope.evolutionSelector + '&columns=' + $scope.evolutionSelector + '&idSite=' + website.idsite + '&idsite=' + website.idsite + '&viewDataTable=sparkline' + append + '&colors=' + encodeURIComponent(JSON.stringify(piwik.getSparklineColors()));
-                }
-                $scope.start=function(){
-                    return Math.ceil($scope.currentPage*$scope.pageSize);
-                }
-                $scope.end=function(){
-                    var end = $scope.start() + $scope.pageSize;
-                    if (end > $scope.searchedWebsites.length) {
-                        return $scope.searchedWebsites.length
-                    }
-                    return end;
-                }
-
-            }
+            {% set row %}
+            {% include "@MultiSites/_siteRow.twig" %}
+            {% endset %}
+            params['row'] = '{{ row|e("js") }}';
+            params['dateSparkline'] = '{{ dateSparkline }}';
         </script>
 
         <div class="centerLargeDiv">
@@ -106,9 +81,6 @@
                 </thead>
 
                 <tbody id="tb">
-                <tr ng-repeat="website in searchedWebsites | orderBy:predicate:reverse | startFrom:currentPage*pageSize | limitTo:pageSize">
-                    {% include "@MultiSites/_siteRow.twig" %}
-                </tr>
                 </tbody>
 
                 <tfoot>
@@ -121,32 +93,21 @@
                         </td>
                     </tr>
                 {% endif %}
-
-                <tr>
-                    <td colspan="8" class="clean" style="text-align: center;">
-                        <input type="text" ng-change="searchedWebsites = (websites | filter:searchWebsite);currentPage=0" ng-model="searchWebsite" placeholder="Search for websites">
-                    </td>
-                </tr>
-
                 <tr row_id="last">
-                    <td colspan="8" class="clean" style="padding: 20px;" ng-hide="numberOfPages() <= 1">
-                        <span id="prev" class="pager" style="padding-right: 20px;" ng-hide="currentPage == 0" ng-click="currentPage=currentPage-1">
-                            <span style="cursor:pointer;">&#171; {{ 'General_Previous'|translate|e("js") }}</span>
-                        </span>
+                    <td colspan="8" class="clean" style="padding: 20px;">
+                        <span id="prev" class="pager" style="padding-right: 20px;"></span>
                         <span class="dataTablePages">
                             <span id="counter">
-                                <span>!?start()?! - !?end()?! of !?searchedWebsites.length?!</span>
                             </span>
                         </span>
-                        <span id="next" class="clean" style="padding-left: 20px;" ng-hide="currentPage >= websites.length/pageSize - 1" ng-click="currentPage=currentPage+1">
-                            <span style="cursor:pointer;" class="pointer">{{ 'General_Next'|translate|e("js") }} &#187;</span>
-                        </span>
+                        <span id="next" class="clean" style="padding-left: 20px;"></span>
                     </td>
                 </tr>
                 </tfoot>
             </table>
         </div>
         <script type="text/javascript">
+            prepareRows(allSites, params, '{{ orderBy }}');
 
             {% if autoRefreshTodayReport %}
             piwikHelper.refreshAfter({{ autoRefreshTodayReport }} * 1000);

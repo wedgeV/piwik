@@ -5,8 +5,6 @@
  * @link http://piwik.org
  * @license http://www.gnu.org/licenses/gpl-3.0.html GPL v3 or later
  *
- * @category Piwik_Plugins
- * @package Feedback
  */
 namespace Piwik\Plugins\Feedback;
 
@@ -23,7 +21,6 @@ use Piwik\View;
 
 /**
  *
- * @package Feedback
  */
 class Controller extends \Piwik\Plugin\Controller
 {
@@ -31,7 +28,7 @@ class Controller extends \Piwik\Plugin\Controller
     {
         $view = new View('@Feedback/index');
         $view->nonce = Nonce::getNonce('Feedback.sendFeedback', 3600);
-        echo $view->render();
+        return $view->render();
     }
 
     /**
@@ -81,6 +78,6 @@ class Controller extends \Piwik\Plugin\Controller
             $view->message = $body;
         }
 
-        echo $view->render();
+        return $view->render();
     }
 }

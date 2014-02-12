@@ -5,8 +5,6 @@
  * @link http://piwik.org
  * @license http://www.gnu.org/licenses/gpl-3.0.html GPL v3 or later
  *
- * @category Piwik
- * @package Piwik
  */
 namespace Piwik\DataTable;
 
@@ -23,9 +21,6 @@ use Piwik\Piwik;
  *  $render = new Xml();
  *  $render->setTable($dataTable);
  *  echo $render;
- *
- * @package Piwik
- * @subpackage DataTable
  */
 abstract class Renderer
 {
@@ -125,7 +120,7 @@ abstract class Renderer
     protected function getExceptionMessage()
     {
         $message = $this->exception->getMessage();
-        if (Piwik_ShouldPrintBackTraceWithMessage()) {
+        if (\Piwik_ShouldPrintBackTraceWithMessage()) {
             $message .= "\n" . $this->exception->getTraceAsString();
         }
         return self::renderHtmlEntities($message);

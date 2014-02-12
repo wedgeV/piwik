@@ -5,18 +5,15 @@
  * @link http://piwik.org
  * @license http://www.gnu.org/licenses/gpl-3.0.html GPL v3 or later
  *
- * @category Piwik
- * @package Piwik
  */
 
 namespace Piwik;
 
 /**
- * The singleton class restricts the instantiation of a class to one object only.
+ * The singleton base class restricts the instantiation of derived classes to one object only.
  * 
  * All plugin APIs are singletons and thus extend this class.
  *
- * @package Piwik
  * @api
  */
 class Singleton
@@ -30,7 +27,7 @@ class Singleton
     /**
      * Returns the singleton instance for the derived class. If the singleton instance
      * has not been created, this method will create it.
-     * 
+     *
      * @return Singleton
      */
     public static function getInstance() {

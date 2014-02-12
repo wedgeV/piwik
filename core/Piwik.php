@@ -5,8 +5,6 @@
  * @link http://piwik.org
  * @license http://www.gnu.org/licenses/gpl-3.0.html GPL v3 or later
  *
- * @category Piwik
- * @package Piwik
  */
 namespace Piwik;
 
@@ -17,7 +15,7 @@ use Piwik\Db\Schema;
 use Piwik\Db;
 use Piwik\Plugin;
 use Piwik\Plugins\SitesManager\API as APISitesManager;
-use Piwik\Plugins\UsersManager\API;
+use Piwik\Plugins\UsersManager\API as APIUsersManager;
 use Piwik\Session;
 use Piwik\Tracker;
 use Piwik\View;
@@ -31,9 +29,7 @@ require_once PIWIK_INCLUDE_PATH . '/core/Translate.php';
  * Main piwik helper class.
  * 
  * Contains helper methods for a variety of common tasks. Plugin developers are
- * encouraged to reuse these methods.
- *
- * @package Piwik
+ * encouraged to reuse these methods as much as possible.
  */
 class Piwik
 {
@@ -49,10 +45,18 @@ class Piwik
         'range' => 5,
     );
 
-    /** The idGoal query parameter value for the special 'abandoned carts' goal. */
+    /**
+     * The idGoal query parameter value for the special 'abandoned carts' goal.
+     * 
+     * @api
+     */
     const LABEL_ID_GOAL_IS_ECOMMERCE_CART = 'ecommerceAbandonedCart';
 
-    /** The idGoal query parameter value for the special 'ecommerce' goal. */
+    /**
+     * The idGoal query parameter value for the special 'ecommerce' goal.
+     * 
+     * @api
+     */
     const LABEL_ID_GOAL_IS_ECOMMERCE_ORDER = 'ecommerceOrder';
 
     /**
@@ -179,6 +183,7 @@ class Piwik
     {
         static $titles = array(
             'Web analytics',
+            'Open analytics platform',
             'Real Time Web Analytics',
             'Analytics',
             'Real Time Analytics',
@@ -206,18 +211,12 @@ class Piwik
      */
     static public function getCurrentUserEmail()
     {
-        if (!Piwik::isUserIsSuperUser()) {
-            $user = API::getInstance()->getUser(Piwik::getCurrentUserLogin());
-            return $user['email'];
-        }
-        return self::getSuperUserEmail();
+        $user = APIUsersManager::getInstance()->getUser(Piwik::getCurrentUserLogin());
+        return $user['email'];
     }
 
     /**
-     * Returns the super user's username.
-     *
-     * @return string
-     * @api
+     * @deprecated deprecated since version 2.0.4
      */
     static public function getSuperUserLogin()
     {
@@ -225,15 +224,33 @@ class Piwik
     }
 
     /**
-     * Returns the super user's email address.
-     *
-     * @return string
-     * @api
+     * @deprecated deprecated since version 2.0.4
      */
     static public function getSuperUserEmail()
     {
-        $superuser = Config::getInstance()->superuser;
-        return $superuser['email'];
+        return '';
+    }
+
+    /**
+     * Get a list of all email addresses having Super User access.
+     *
+     * @return array
+     */
+    static public function getAllSuperUserAccessEmailAddresses()
+    {
+        $emails = array();
+
+        try {
+            $superUsers = APIUsersManager::getInstance()->getUsersHavingSuperUserAccess();
+        } catch (\Exception $e) {
+            return $emails;
+        }
+
+        foreach ($superUsers as $superUser) {
+            $emails[] = $superUser['email'];
+        }
+
+        return $emails;
     }
 
     /**
@@ -259,52 +276,111 @@ class Piwik
     }
 
     /**
-     * Returns true if the current user is either the super user or the user specified by
+     * Returns `true` if the current user is either the Super User or the user specified by
      * `$theUser`.
      *
      * @param string $theUser A username.
      * @return bool
      * @api
      */
-    static public function isUserIsSuperUserOrTheUser($theUser)
+    static public function hasUserSuperUserAccessOrIsTheUser($theUser)
     {
         try {
-            self::checkUserIsSuperUserOrTheUser($theUser);
+            self::checkUserHasSuperUserAccessOrIsTheUser($theUser);
             return true;
         } catch (Exception $e) {
             return false;
         }
+    }
+
+    /**
+     * @see Piwik::hasUserSuperUserAccessOrIsTheUser()
+     * @deprecated deprecated since version 2.0.4
+     */
+    static public function isUserIsSuperUserOrTheUser($theUser)
+    {
+        return self::hasUserSuperUserAccessOrIsTheUser($theUser);
+    }
+
+    /**
+     * @see Piwik::checkUserHasSuperUserAccessOrIsTheUser()
+     * @deprecated deprecated since version 2.0.4
+     */
+    static public function checkUserIsSuperUserOrTheUser($theUser)
+    {
+        self::checkUserHasSuperUserAccessOrIsTheUser($theUser);
     }
 
     /**
      * Check that the current user is either the specified user or the superuser.
      *
      * @param string $theUser A username.
-     * @throws NoAccessException If the user is neither the super user nor the user `$theUser`.
+     * @throws NoAccessException If the user is neither the Super User nor the user `$theUser`.
      * @api
      */
-    static public function checkUserIsSuperUserOrTheUser($theUser)
+    static public function checkUserHasSuperUserAccessOrIsTheUser($theUser)
     {
         try {
             if (Piwik::getCurrentUserLogin() !== $theUser) {
-                // or to the super user
-                Piwik::checkUserIsSuperUser();
+                // or to the Super User
+                Piwik::checkUserHasSuperUserAccess();
             }
         } catch (NoAccessException $e) {
-            throw new NoAccessException(Piwik::translate('General_ExceptionCheckUserIsSuperUserOrTheUser', array($theUser)));
+            throw new NoAccessException(Piwik::translate('General_ExceptionCheckUserHasSuperUserAccessOrIsTheUser', array($theUser)));
         }
     }
 
     /**
-     * Returns true if the current user is the Super User.
+     * Check whether the given user has superuser access.
+     *
+     * @param string $theUser A username.
+     * @return bool
+     * @api
+     */
+    static public function hasTheUserSuperUserAccess($theUser)
+    {
+        if (empty($theUser)) {
+            return false;
+        }
+
+        if (Piwik::getCurrentUserLogin() === $theUser && Piwik::hasUserSuperUserAccess()) {
+            return true;
+        }
+
+        try {
+            $superUsers = APIUsersManager::getInstance()->getUsersHavingSuperUserAccess();
+        } catch (\Exception $e) {
+            return false;
+        }
+
+        foreach ($superUsers as $superUser) {
+            if ($theUser === $superUser['login']) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * @see Piwik::hasUserSuperUserAccess()
+     * @deprecated deprecated since version 2.0.4
+     */
+    static public function isUserIsSuperUser()
+    {
+        return self::hasUserSuperUserAccess();
+    }
+
+    /**
+     * Returns true if the current user has Super User access.
      *
      * @return bool
      * @api
      */
-    static public function isUserIsSuperUser()
+    static public function hasUserSuperUserAccess()
     {
         try {
-            self::checkUserIsSuperUser();
+            self::checkUserHasSuperUserAccess();
             return true;
         } catch (Exception $e) {
             return false;
@@ -312,7 +388,7 @@ class Piwik
     }
 
     /**
-     * Returns true if the current user is the special anonymous user or not.
+     * Returns true if the current user is the special **anonymous** user or not.
      *
      * @return bool
      * @api
@@ -339,26 +415,44 @@ class Piwik
      * Helper method user to set the current as superuser.
      * This should be used with great care as this gives the user all permissions.
      *
-     * @param bool $bool true to set current user as super user
+     * @param bool $bool true to set current user as Super User
      */
-    static public function setUserIsSuperUser($bool = true)
+    static public function setUserHasSuperUserAccess($bool = true)
     {
-        Access::getInstance()->setSuperUser($bool);
+        Access::getInstance()->setSuperUserAccess($bool);
     }
 
     /**
-     * Check that the current user is the superuser.
+     * @see Piwik::setUserHasSuperUserAccess()
+     * @deprecated deprecated since version 2.0.4
+     */
+    static public function setUserIsSuperUser($bool = true)
+    {
+        self::setUserHasSuperUserAccess($bool);
+    }
+
+    /**
+     * @see Piwik::checkUserHasSuperUserAccess()
+     * @deprecated deprecated since version 2.0.4
+     */
+    static public function checkUserIsSuperUser()
+    {
+        self::checkUserHasSuperUserAccess();
+    }
+
+    /**
+     * Check that the current user has superuser access.
      *
      * @throws Exception if the current user is not the superuser.
      * @api
      */
-    static public function checkUserIsSuperUser()
+    static public function checkUserHasSuperUserAccess()
     {
-        Access::getInstance()->checkUserIsSuperUser();
+        Access::getInstance()->checkUserHasSuperUserAccess();
     }
 
     /**
-     * Returns true if the user has admin access to the requested sites, false if otherwise.
+     * Returns `true` if the user has admin access to the requested sites, `false` if otherwise.
      *
      * @param int|array $idSites The list of site IDs to check access for.
      * @return bool
@@ -377,7 +471,7 @@ class Piwik
     /**
      * Checks that the current user has admin access to the requested list of sites.
      *
-     * @param int|array $idSites The list of site IDs to check access for.
+     * @param int|array $idSites One or more site IDs to check access for.
      * @throws Exception If user doesn't have admin access.
      * @api
      */
@@ -387,7 +481,7 @@ class Piwik
     }
 
     /**
-     * Returns true if the current user has admin access to at least one site.
+     * Returns `true` if the current user has admin access to at least one site.
      *
      * @return bool
      * @api
@@ -414,9 +508,9 @@ class Piwik
     }
 
     /**
-     * Returns true if the user has view access to the requested list of sites.
+     * Returns `true` if the user has view access to the requested list of sites.
      *
-     * @param int|array $idSites The list of site IDs to check access for.
+     * @param int|array $idSites One or more site IDs to check access for.
      * @return bool
      * @api
      */
@@ -443,7 +537,7 @@ class Piwik
     }
 
     /**
-     * Returns true if the current user has view access to at least one site.
+     * Returns `true` if the current user has view access to at least one site.
      *
      * @return bool
      * @api
@@ -559,7 +653,7 @@ class Piwik
      */
 
     /**
-     * Returns true if the email address is a valid.
+     * Returns `true` if supplied the email address is a valid.
      *
      * @param string $emailAddress
      * @return bool
@@ -571,8 +665,9 @@ class Piwik
     }
 
     /**
-     * Returns true if the login is valid.
-     * Warning: does not check if the login already exists! You must use UsersManager_API->userExists as well.
+     * Returns `true` if the login is valid.
+     * 
+     * _Warning: does not check if the login already exists! You must use UsersManager_API->userExists as well._
      *
      * @param string $userLogin
      * @throws Exception
@@ -676,7 +771,6 @@ class Piwik
      *                      have their observers for this event executed.
      * @param array|null $plugins The list of plugins to execute observers for. If null, all
      *                            plugin observers will be executed.
-     * @return void
      * @api
      */
     public static function postEvent($eventName, $params = array(), $pending = false, $plugins = null)
@@ -687,11 +781,11 @@ class Piwik
     /**
      * Register an observer to an event.
      * 
-     * Observers should normally be defined in plugin objects. It is unlikely that you will
-     * need to use this function.
+     * **_Note: Observers should normally be defined in plugin objects. It is unlikely that you will
+     * need to use this function._**
      *
      * @param string $eventName The event name.
-     * @param callable $function The observer.
+     * @param callable|array $function The observer.
      * @api
      */
     public static function addAction($eventName, $function)
@@ -711,13 +805,13 @@ class Piwik
     }
 
     /**
-     * Returns an internationalized string using a translation ID. If a translation
-     * cannot be found for the ID, the ID is returned.
+     * Returns an internationalized string using a translation token. If a translation
+     * cannot be found for the toke, the token is returned.
      *
      * @param string $translationId Translation ID, eg, `'General_Date'`.
      * @param array|string|int $args `sprintf` arguments to be applied to the internationalized
      *                               string.
-     * @return string
+     * @return string The translated string or `$translationId`.
      * @api
      */
     public static function translate($translationId, $args = array())

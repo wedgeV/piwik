@@ -5,8 +5,6 @@
  * @link http://piwik.org
  * @license http://www.gnu.org/licenses/gpl-3.0.html GPL v3 or later
  *
- * @category Piwik_Plugins
- * @package CoreAdminHome
  */
 namespace Piwik\Plugins\CoreAdminHome;
 
@@ -24,12 +22,11 @@ use Piwik\Settings\UserSetting;
 
 /**
  *
- * @package CoreAdminHome
  */
 class CoreAdminHome extends \Piwik\Plugin
 {
     /**
-     * @see Piwik_Plugin::getListHooksRegistered
+     * @see Piwik\Plugin::getListHooksRegistered
      */
     public function getListHooksRegistered()
     {
@@ -93,7 +90,7 @@ class CoreAdminHome extends \Piwik\Plugin
     function addMenu()
     {
         MenuAdmin::getInstance()->add('CoreAdminHome_MenuManage', null, "", Piwik::isUserHasSomeAdminAccess(), $order = 1);
-        MenuAdmin::getInstance()->add('CoreAdminHome_MenuDiagnostic', null, "", Piwik::isUserHasSomeAdminAccess(), $order = 6);
+        MenuAdmin::getInstance()->add('CoreAdminHome_MenuDiagnostic', null, "", Piwik::isUserHasSomeAdminAccess(), $order = 10);
         MenuAdmin::getInstance()->add('General_Settings', null, "", Piwik::isUserHasSomeAdminAccess(), $order = 5);
         MenuAdmin::getInstance()->add('General_Settings', 'CoreAdminHome_MenuGeneralSettings',
             array('module' => 'CoreAdminHome', 'action' => 'generalSettings'),
@@ -104,7 +101,7 @@ class CoreAdminHome extends \Piwik\Plugin
             Piwik::isUserHasSomeAdminAccess(),
             $order = 4);
 
-        MenuAdmin::getInstance()->add('General_Settings', 'General_Plugins',
+        MenuAdmin::getInstance()->add('General_Settings', 'CoreAdminHome_PluginSettings',
             array('module' => 'CoreAdminHome', 'action' => 'pluginSettings'),
             SettingsManager::hasPluginsSettingsForCurrentUser(),
             $order = 7);
@@ -117,7 +114,11 @@ class CoreAdminHome extends \Piwik\Plugin
         foreach ($archiveTables as $table) {
             $date = ArchiveTableCreator::getDateFromTableName($table);
             list($year, $month) = explode('_', $date);
-            ArchiveSelector::purgeOutdatedArchives(Date::factory("$year-$month-15"));
+
+            // Somehow we may have archive tables created with older dates, prevent exception from being thrown
+            if($year > 1990) {
+                ArchiveSelector::purgeOutdatedArchives(Date::factory("$year-$month-15"));
+            }
         }
     }
 

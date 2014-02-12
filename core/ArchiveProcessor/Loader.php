@@ -5,8 +5,6 @@
  * @link http://piwik.org
  * @license http://www.gnu.org/licenses/gpl-3.0.html GPL v3 or later
  *
- * @category Piwik
- * @package Piwik
  */
 namespace Piwik\ArchiveProcessor;
 use Piwik\Archive;
@@ -120,7 +118,12 @@ class Loader
             $pluginsArchiver->callAggregateAllPlugins($visits, $visitsConverted);
         }
         $idArchive = $pluginsArchiver->finalizeArchive();
-        return array( $idArchive, $visits);
+
+        if (!$this->params->isSingleSiteDayArchive() && $visits) {
+            ArchiveSelector::purgeOutdatedArchives($this->params->getPeriod()->getDateStart());
+        }
+
+        return array($idArchive, $visits);
     }
 
     protected function doesRequestedPluginIncludeVisitsSummary()
@@ -141,7 +144,7 @@ class Loader
         } elseif ($period == 'range') {
             $debugSetting = 'always_archive_data_range';
         }
-        return Config::getInstance()->Debug[$debugSetting];
+        return (bool) Config::getInstance()->Debug[$debugSetting];
     }
 
     /**
@@ -153,11 +156,13 @@ class Loader
     protected function loadExistingArchiveIdFromDb()
     {
         $noArchiveFound = array(false, false, false);
+
+        // see isArchiveTemporary()
+        $minDatetimeArchiveProcessedUTC = $this->getMinTimeArchiveProcessed();
+
         if ($this->isArchivingForcedToTrigger()) {
             return $noArchiveFound;
         }
-
-        $minDatetimeArchiveProcessedUTC = $this->getMinTimeArchiveProcessed();
         $site = $this->params->getSite();
         $period = $this->params->getPeriod();
         $segment = $this->params->getSegment();

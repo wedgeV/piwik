@@ -5,8 +5,6 @@
  * @link http://piwik.org
  * @license http://www.gnu.org/licenses/gpl-3.0.html GPL v3 or later
  *
- * @category Piwik
- * @package Piwik
  */
 namespace Piwik\Tracker;
 
@@ -20,8 +18,6 @@ use Piwik\Tracker;
 /**
  * Simple cache mechanism used in Tracker to avoid requesting settings from mysql on every request
  *
- * @package Piwik
- * @subpackage Tracker
  */
 class Cache
 {
@@ -48,7 +44,13 @@ class Cache
      */
     static function getCacheWebsiteAttributes($idSite)
     {
+        if($idSite == 'all') {
+            return array();
+        }
         $idSite = (int)$idSite;
+        if($idSite <= 0) {
+            return array();
+        }
 
         $cache = self::getInstance();
         if (($cacheContent = $cache->get($idSite)) !== false) {
@@ -57,15 +59,18 @@ class Cache
 
         Tracker::initCorePiwikInTrackerMode();
 
-        // save current user privilege and temporarily assume super user privilege
-        $isSuperUser = Piwik::isUserIsSuperUser();
-        Piwik::setUserIsSuperUser();
+        // save current user privilege and temporarily assume Super User privilege
+        $isSuperUser = Piwik::hasUserSuperUserAccess();
+        Piwik::setUserHasSuperUserAccess();
 
         $content = array();
         
         /**
-         * This event is called to get the details of a site by its ID. It can be used to
-         * add custom attributes for the website to the Tracker cache.
+         * Triggered to get the attributes of a site entity that might be used by the
+         * Tracker.
+         * 
+         * Plugins add new site attributes for use in other tracking events must
+         * use this event to put those attributes in the Tracker Cache.
          * 
          * **Example**
          * 
@@ -75,13 +80,13 @@ class Cache
          *         $content['myplugin_site_data'] = Db::fetchOne($sql, array($idSite));
          *     }
          * 
-         * @param array &$content List of attributes.
-         * @param int $idSite The site ID.
+         * @param array &$content Array mapping of site attribute names with values.
+         * @param int $idSite The site ID to get attributes for.
          */
-        Piwik::postEvent('Site.getSiteAttributes', array(&$content, $idSite));
+        Piwik::postEvent('Tracker.Cache.getSiteAttributes', array(&$content, $idSite));
 
         // restore original user privilege
-        Piwik::setUserIsSuperUser($isSuperUser);
+        Piwik::setUserHasSuperUserAccess($isSuperUser);
 
         // if nothing is returned from the plugins, we don't save the content
         // this is not expected: all websites are expected to have at least one URL
@@ -109,10 +114,8 @@ class Cache
     {
         $cache = self::getInstance();
         $cacheId = 'general';
-        $expectedRows = 3;
-        if (($cacheContent = $cache->get($cacheId)) !== false
-            && count($cacheContent) == $expectedRows
-        ) {
+
+        if (($cacheContent = $cache->get($cacheId)) !== false) {
             return $cacheContent;
         }
 
@@ -123,13 +126,14 @@ class Cache
         );
 
         /**
-         * Triggered before the general tracker cache is saved to disk. This event can be
-         * used to add extra content to the cace.
+         * Triggered before the [general tracker cache](/guides/all-about-tracking#the-tracker-cache)
+         * is saved to disk. This event can be used to add extra content to the cache.
          * 
          * Data that is used during tracking but is expensive to compute/query should be
-         * cached so as not to slow the tracker down. One example of such data are options
-         * that are stored in the piwik_option table. Requesting data on each tracking
-         * request means an extra unnecessary database query on each visitor action.
+         * cached to keep tracking efficient. One example of such data are options
+         * that are stored in the piwik_option table. Querying data for each tracking
+         * request means an extra unnecessary database query for each visitor action. Using
+         * a cache solves this problem.
          * 
          * **Example**
          * 

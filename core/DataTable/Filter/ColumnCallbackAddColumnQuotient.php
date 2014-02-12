@@ -5,12 +5,10 @@
  * @link http://piwik.org
  * @license http://www.gnu.org/licenses/gpl-3.0.html GPL v3 or later
  *
- * @category Piwik
- * @package Piwik
  */
 namespace Piwik\DataTable\Filter;
 
-use Piwik\DataTable\Filter;
+use Piwik\DataTable\BaseFilter;
 use Piwik\DataTable;
 use Piwik\DataTable\Row;
 
@@ -21,11 +19,13 @@ use Piwik\DataTable\Row;
  * This filter is used to calculate rate values (eg, `'bounce_rate'`), averages
  * (eg, `'avg_time_on_page'`) and other types of values.
  *
- * @package Piwik
- * @subpackage DataTable
+ * **Basic usage example**
+ * 
+ *     $dataTable->queueFilter('ColumnCallbackAddColumnQuotient', array('bounce_rate', 'bounce_count', 'nb_visits', $precision = 2));
+ * 
  * @api
  */
-class ColumnCallbackAddColumnQuotient extends Filter
+class ColumnCallbackAddColumnQuotient extends BaseFilter
 {
     protected $table;
     protected $columnValueToRead;
@@ -51,7 +51,8 @@ class ColumnCallbackAddColumnQuotient extends Filter
      * @param bool $getDivisorFromSummaryRow Whether to get the divisor from the summary row or the current
      *                                       row iteration.
      */
-    public function __construct($table, $columnNameToAdd, $columnValueToRead, $divisorValueOrDivisorColumnName, $quotientPrecision = 0, $shouldSkipRows = false, $getDivisorFromSummaryRow = false)
+    public function __construct($table, $columnNameToAdd, $columnValueToRead, $divisorValueOrDivisorColumnName,
+                                $quotientPrecision = 0,$shouldSkipRows = false, $getDivisorFromSummaryRow = false)
     {
         parent::__construct($table);
         $this->table = $table;
@@ -68,20 +69,21 @@ class ColumnCallbackAddColumnQuotient extends Filter
     }
 
     /**
-     * See [ColumnCallbackAddColumnQuotient](#).
+     * See {@link ColumnCallbackAddColumnQuotient}.
      *
      * @param DataTable $table
      */
     public function filter($table)
     {
         foreach ($table->getRows() as $key => $row) {
-            $existingValue = $row->getColumn($this->columnNameToAdd);
-            if ($existingValue !== false) {
+            $value = $this->getDividend($row);
+            if ($value === false && $this->shouldSkipRows) {
                 continue;
             }
 
-            $value = $this->getDividend($row);
-            if ($value === false && $this->shouldSkipRows) {
+            // Delete existing column if it exists
+            $existingValue = $row->getColumn($this->columnNameToAdd);
+            if ($existingValue !== false) {
                 continue;
             }
 

@@ -5,12 +5,10 @@
  * @link http://piwik.org
  * @license http://www.gnu.org/licenses/gpl-3.0.html GPL v3 or later
  *
- * @category Piwik
- * @package Piwik
  */
 namespace Piwik\DataTable\Filter;
 
-use Piwik\DataTable\Filter;
+use Piwik\DataTable\BaseFilter;
 use Piwik\DataTable\Simple;
 use Piwik\DataTable;
 use Piwik\Metrics;
@@ -25,7 +23,7 @@ use Piwik\Tracker\GoalManager;
  * (which are integers) with their string column names. In the database, reports are
  * stored with integer metric names because it results in blobs that take up less space.
  * When loading the reports, the column names must be replaced, which is handled by this
- * class. (See [Metrics](#) for more information about integer metric names.)
+ * class. (See {@link Piwik\Metrics} for more information about integer metric names.)
  * 
  * **Basic example**
  * 
@@ -37,11 +35,9 @@ use Piwik\Tracker\GoalManager;
  *         return $dataTable;
  *     }
  * 
- * @package Piwik
- * @subpackage DataTable
  * @api
  */
-class ReplaceColumnNames extends Filter
+class ReplaceColumnNames extends BaseFilter
 {
     protected $mappingToApply;
 
@@ -51,11 +47,11 @@ class ReplaceColumnNames extends Filter
      * @param DataTable $table The table that will be eventually filtered.
      * @param array|null $mappingToApply The name mapping to apply. Must map old column names
      *                                   with new ones, eg,
-     *                                   ```
-     *                                   array('OLD_COLUMN_NAME' => 'NEW_COLUMN NAME',
-     *                                         'OLD_COLUMN_NAME2' => 'NEW_COLUMN NAME2')
-     *                                   ```
-     *                                   If null, [Metrics::$mappingFromIdToName](#) is used.
+     *                                   
+     *                                       array('OLD_COLUMN_NAME' => 'NEW_COLUMN NAME',
+     *                                             'OLD_COLUMN_NAME2' => 'NEW_COLUMN NAME2')
+     *                                   
+     *                                   If null, {@link Piwik\Metrics::$mappingFromIdToName} is used.
      */
     public function __construct($table, $mappingToApply = null)
     {
@@ -67,7 +63,7 @@ class ReplaceColumnNames extends Filter
     }
 
     /**
-     * See [ReplaceColumnNames](#).
+     * See {@link ReplaceColumnNames}.
      *
      * @param DataTable $table
      */

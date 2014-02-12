@@ -5,8 +5,6 @@
  * @link http://piwik.org
  * @license http://www.gnu.org/licenses/gpl-3.0.html GPL v3 or later
  *
- * @category Piwik_Plugins
- * @package Widgetize
  */
 namespace Piwik\Plugins\Widgetize;
 
@@ -18,7 +16,6 @@ use Piwik\WidgetsList;
 
 /**
  *
- * @package Widgetize
  */
 class Controller extends \Piwik\Plugin\Controller
 {
@@ -27,7 +24,7 @@ class Controller extends \Piwik\Plugin\Controller
         $view = new View('@Widgetize/index');
         $view->availableWidgets = Common::json_encode(WidgetsList::get());
         $this->setGeneralVariablesView($view);
-        echo $view->render();
+        return $view->render();
     }
 
     public function testJsInclude1()
@@ -35,7 +32,7 @@ class Controller extends \Piwik\Plugin\Controller
         $view = new View('@Widgetize/testJsInclude1');
         $view->url1 = '?module=Widgetize&action=js&moduleToWidgetize=UserSettings&actionToWidgetize=getBrowser&idSite=1&period=day&date=yesterday';
         $view->url2 = '?module=Widgetize&action=js&moduleToWidgetize=API&actionToWidgetize=index&method=ExamplePlugin.getGoldenRatio&format=original';
-        echo $view->render();
+        return $view->render();
     }
 
     public function testJsInclude2()
@@ -44,7 +41,7 @@ class Controller extends \Piwik\Plugin\Controller
         $view->url1 = '?module=Widgetize&action=js&moduleToWidgetize=UserSettings&actionToWidgetize=getBrowser&idSite=1&period=day&date=yesterday';
         $view->url2 = '?module=Widgetize&action=js&moduleToWidgetize=UserCountry&actionToWidgetize=getCountry&idSite=1&period=day&date=yesterday&viewDataTable=cloud&show_footer=0';
         $view->url3 = '?module=Widgetize&action=js&moduleToWidgetize=Referrers&actionToWidgetize=getKeywords&idSite=1&period=day&date=yesterday&viewDataTable=table&show_footer=0';
-        echo $view->render();
+        return $view->render();
     }
 
     public function iframe()
@@ -63,6 +60,6 @@ class Controller extends \Piwik\Plugin\Controller
         $this->setGeneralVariablesView($view);
         $view->setXFrameOptions('allow');
         $view->content = $outputDataTable;
-        echo $view->render();
+        return $view->render();
     }
 }

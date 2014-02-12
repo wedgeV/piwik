@@ -5,22 +5,18 @@
  * @link http://piwik.org
  * @license http://www.gnu.org/licenses/gpl-3.0.html GPL v3 or later
  *
- * @category Piwik
- * @package Piwik
  */
 namespace Piwik;
 
 /**
  * Contains less commonly needed URL helper methods.
  * 
- * @package Piwik
  */
 class UrlHelper
 {
     /**
      * Converts an array of query parameter name/value mappings into a query string.
-     * Parameters that are in `$parametersToExclude` will not appear in the result
-     * query string.
+     * Parameters that are in `$parametersToExclude` will not appear in the result.
      *
      * @static
      * @param $queryParameters Array of query parameters, eg, `array('site' => '0', 'date' => '2012-01-01')`.
@@ -96,7 +92,7 @@ class UrlHelper
     }
 
     /**
-     * Returns true if the string passed may be a URL.
+     * Returns true if the string passed may be a URL ie. it starts with protocol://.
      * We don't need a precise test here because the value comes from the website
      * tracked source code and the URLs may look very strange.
      *
@@ -113,7 +109,7 @@ class UrlHelper
      * Returns a URL created from the result of the [parse_url](http://php.net/manual/en/function.parse-url.php)
      * function.
      * 
-     * Copied from the PHP comments at http://php.net/parse_url
+     * Copied from the PHP comments at [http://php.net/parse_url](http://php.net/parse_url).
      * 
      * @param array $parsed Result of [parse_url](http://php.net/manual/en/function.parse-url.php).
      * @return false|string The URL or `false` if `$parsed` isn't an array.
@@ -144,7 +140,7 @@ class UrlHelper
     /**
      * Returns a URL query string as an array.
      *
-     * @param string $urlQuery The query string.
+     * @param string $urlQuery The query string, eg, `'?param1=value1&param2=value2'`.
      * @return array eg, `array('param1' => 'value1', 'param2' => 'value2')`
      * @api
      */
@@ -221,7 +217,7 @@ class UrlHelper
     /**
      * Returns the path and query string of a URL.
      *
-     * @param string $url
+     * @param string $url The URL.
      * @return string eg, `/test/index.php?module=CoreHome` if `$url` is `http://piwik.org/test/index.php?module=CoreHome`.
      * @api
      */

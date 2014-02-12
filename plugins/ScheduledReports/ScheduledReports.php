@@ -5,8 +5,6 @@
  * @link http://piwik.org
  * @license http://www.gnu.org/licenses/gpl-3.0.html GPL v3 or later
  *
- * @category Piwik_Plugins
- * @package ScheduledReports
  */
 namespace Piwik\Plugins\ScheduledReports;
 
@@ -15,9 +13,11 @@ use Piwik\Common;
 use Piwik\Config;
 use Piwik\Date;
 use Piwik\Db;
+use Piwik\DbHelper;
 use Piwik\Mail;
 use Piwik\Menu\MenuTop;
 use Piwik\Piwik;
+use Piwik\Plugins\CoreAdminHome\CustomLogo;
 use Piwik\Plugins\MobileMessaging\API as APIMobileMessaging;
 use Piwik\Plugins\MobileMessaging\MobileMessaging;
 use Piwik\Plugins\SegmentEditor\API as APISegmentEditor;
@@ -31,7 +31,6 @@ use Zend_Mime;
 
 /**
  *
- * @package ScheduledReports
  */
 class ScheduledReports extends \Piwik\Plugin
 {
@@ -74,7 +73,7 @@ class ScheduledReports extends \Piwik\Plugin
     );
 
     /**
-     * @see Piwik_Plugin::getListHooksRegistered
+     * @see Piwik\Plugin::getListHooksRegistered
      */
     public function getListHooksRegistered()
     {
@@ -82,6 +81,7 @@ class ScheduledReports extends \Piwik\Plugin
             'Menu.Top.addItems'                         => 'addTopMenu',
             'TaskScheduler.getScheduledTasks'           => 'getScheduledTasks',
             'AssetManager.getJavaScriptFiles'           => 'getJsFiles',
+            'MobileMessaging.deletePhoneNumber'         => 'deletePhoneNumber',
             'ScheduledReports.getReportParameters'      => 'getReportParameters',
             'ScheduledReports.validateReportParameters' => 'validateReportParameters',
             'ScheduledReports.getReportMetadata'        => 'getReportMetadata',
@@ -274,7 +274,8 @@ class ScheduledReports extends \Piwik\Plugin
 
             $mail = new Mail();
             $mail->setSubject($subject);
-            $fromEmailName = Config::getInstance()->branding['use_custom_logo']
+            $customLogo = new CustomLogo();
+            $fromEmailName = $customLogo->isEnabled()
                 ? Piwik::translate('CoreHome_WebAnalyticsReports')
                 : Piwik::translate('ScheduledReports_PiwikReports');
             $fromEmailAddress = Config::getInstance()->General['noreply_email_address'];
@@ -347,8 +348,6 @@ class ScheduledReports extends \Piwik\Plugin
             if ($reportParameters[self::EMAIL_ME_PARAMETER] == 1) {
                 if (Piwik::getCurrentUserLogin() == $report['login']) {
                     $emails[] = Piwik::getCurrentUserEmail();
-                } elseif ($report['login'] == Piwik::getSuperUserLogin()) {
-                    $emails[] = Piwik::getSuperUserEmail();
                 } else {
                     try {
                         $user = APIUsersManager::getInstance()->getUser($report['login']);
@@ -381,6 +380,48 @@ class ScheduledReports extends \Piwik\Plugin
         }
     }
 
+    public function deletePhoneNumber($phoneNumber)
+    {
+        $api = API::getInstance();
+
+        $reports = $api->getReports(
+            $idSite = false,
+            $period = false,
+            $idReport = false,
+            $ifSuperUserReturnOnlySuperUserReports = false
+        );
+
+        foreach ($reports as $report) {
+            if ($report['type'] == MobileMessaging::MOBILE_TYPE) {
+                $reportParameters = $report['parameters'];
+                $reportPhoneNumbers = $reportParameters[MobileMessaging::PHONE_NUMBERS_PARAMETER];
+                $updatedPhoneNumbers = array();
+                foreach ($reportPhoneNumbers as $reportPhoneNumber) {
+                    if ($reportPhoneNumber != $phoneNumber) {
+                        $updatedPhoneNumbers[] = $reportPhoneNumber;
+                    }
+                }
+
+                if (count($updatedPhoneNumbers) != count($reportPhoneNumbers)) {
+                    $reportParameters[MobileMessaging::PHONE_NUMBERS_PARAMETER] = $updatedPhoneNumbers;
+
+                    // note: reports can end up without any recipients
+                    $api->updateReport(
+                        $report['idreport'],
+                        $report['idsite'],
+                        $report['description'],
+                        $report['period'],
+                        $report['hour'],
+                        $report['type'],
+                        $report['format'],
+                        $report['reports'],
+                        $reportParameters
+                    );
+                }
+            }
+        }
+    }
+
     public function getReportRecipients(&$recipients, $reportType, $report)
     {
         if (self::manageEvent($reportType)) {
@@ -403,7 +444,6 @@ class ScheduledReports extends \Piwik\Plugin
     {
         $view = new View('@ScheduledReports/reportParametersScheduledReports');
         $view->currentUserEmail = Piwik::getCurrentUserEmail();
-        $view->displayFormats = self::getDisplayFormats();
         $view->reportType = self::EMAIL_TYPE;
         $view->defaultDisplayFormat = self::DEFAULT_DISPLAY_FORMAT;
         $view->defaultEmailMe = self::EMAIL_ME_PARAMETER_DEFAULT_VALUE ? 'true' : 'false';
@@ -418,22 +458,14 @@ class ScheduledReports extends \Piwik\Plugin
 
     public function getScheduledTasks(&$tasks)
     {
-        $arbitraryDateInUTC = Date::factory('2011-01-01');
         foreach (API::getInstance()->getReports() as $report) {
             if (!$report['deleted'] && $report['period'] != ScheduledTime::PERIOD_NEVER) {
-                $midnightInSiteTimezone =
-                    date(
-                        'H',
-                        Date::factory(
-                            $arbitraryDateInUTC,
-                            Site::getTimezoneFor($report['idsite'])
-                        )->getTimestamp()
-                    );
 
-                $hourInUTC = (24 - $midnightInSiteTimezone + $report['hour']) % 24;
+                $timezone = Site::getTimezoneFor($report['idsite']);
 
                 $schedule = ScheduledTime::getScheduledTimeForPeriod($report['period']);
-                $schedule->setHour($hourInUTC);
+                $schedule->setHour($report['hour']);
+                $schedule->setTimezone($timezone);
                 $tasks[] = new ScheduledTask (
                     API::getInstance(),
                     'sendReport',
@@ -519,33 +551,23 @@ class ScheduledReports extends \Piwik\Plugin
 
     public function install()
     {
-        $queries[] = '
-                CREATE TABLE `' . Common::prefixTable('report') . '` (
-					`idreport` INT(11) NOT NULL AUTO_INCREMENT,
-					`idsite` INTEGER(11) NOT NULL,
-					`login` VARCHAR(100) NOT NULL,
-					`description` VARCHAR(255) NOT NULL,
-					`idsegment` INT(11),
-					`period` VARCHAR(10) NOT NULL,
-					`hour` tinyint NOT NULL default 0,
-					`type` VARCHAR(10) NOT NULL,
-					`format` VARCHAR(10) NOT NULL,
-					`reports` TEXT NOT NULL,
-					`parameters` TEXT NULL,
-					`ts_created` TIMESTAMP NULL,
-					`ts_last_sent` TIMESTAMP NULL,
-					`deleted` tinyint(4) NOT NULL default 0,
-					PRIMARY KEY (`idreport`)
-				) DEFAULT CHARSET=utf8';
-        try {
-            foreach ($queries as $query) {
-                Db::exec($query);
-            }
-        } catch (Exception $e) {
-            if (!Db::get()->isErrNo($e, '1050')) {
-                throw $e;
-            }
-        }
+        $reportTable = "`idreport` INT(11) NOT NULL AUTO_INCREMENT,
+					    `idsite` INTEGER(11) NOT NULL,
+					    `login` VARCHAR(100) NOT NULL,
+					    `description` VARCHAR(255) NOT NULL,
+					    `idsegment` INT(11),
+					    `period` VARCHAR(10) NOT NULL,
+					    `hour` tinyint NOT NULL default 0,
+					    `type` VARCHAR(10) NOT NULL,
+					    `format` VARCHAR(10) NOT NULL,
+					    `reports` TEXT NOT NULL,
+					    `parameters` TEXT NULL,
+					    `ts_created` TIMESTAMP NULL,
+					    `ts_last_sent` TIMESTAMP NULL,
+					    `deleted` tinyint(4) NOT NULL default 0,
+					    PRIMARY KEY (`idreport`)";
+
+        DbHelper::createTable('report', $reportTable);
     }
 
     private static function checkAdditionalEmails($additionalEmails)
@@ -562,7 +584,7 @@ class ScheduledReports extends \Piwik\Plugin
         return $additionalEmails;
     }
 
-    private static function getDisplayFormats()
+    public static function getDisplayFormats()
     {
         $displayFormats = array(
             // ScheduledReports_AggregateReportsFormat_TablesOnly should be named ScheduledReports_DisplayFormat_GraphsOnlyForKeyMetrics

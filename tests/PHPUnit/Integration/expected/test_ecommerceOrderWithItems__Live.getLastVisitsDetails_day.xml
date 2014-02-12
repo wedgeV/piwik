@@ -159,13 +159,13 @@
 		<daysSinceLastEcommerceOrder>0</daysSinceLastEcommerceOrder>
 		<continent>Europe</continent>
 		<continentCode>eur</continentCode>
-		<country>France</country>
-		<countryCode>fr</countryCode>
-		<countryFlag>plugins/UserCountry/images/flags/fr.png</countryFlag>
+		<country>Poland</country>
+		<countryCode>pl</countryCode>
+		<countryFlag>plugins/UserCountry/images/flags/pl.png</countryFlag>
 		<region />
 		<regionCode />
 		<city />
-		<location>France</location>
+		<location>Poland</location>
 		<latitude />
 		<longitude />
 		<provider>Unknown</provider>
@@ -190,7 +190,7 @@
 		<browserCode>FF</browserCode>
 		<browserVersion>3.6</browserVersion>
 		<screenType>normal</screenType>
-		<deviceType>desktop</deviceType>
+		<deviceType>Desktop</deviceType>
 		<resolution>1024x768</resolution>
 		<screenTypeIcon>plugins/UserSettings/images/screens/normal.gif</screenTypeIcon>
 		<plugins>flash, java</plugins>
@@ -488,13 +488,13 @@
 		<daysSinceLastEcommerceOrder>0</daysSinceLastEcommerceOrder>
 		<continent>Europe</continent>
 		<continentCode>eur</continentCode>
-		<country>France</country>
-		<countryCode>fr</countryCode>
-		<countryFlag>plugins/UserCountry/images/flags/fr.png</countryFlag>
+		<country>Poland</country>
+		<countryCode>pl</countryCode>
+		<countryFlag>plugins/UserCountry/images/flags/pl.png</countryFlag>
 		<region />
 		<regionCode />
 		<city />
-		<location>France</location>
+		<location>Poland</location>
 		<latitude />
 		<longitude />
 		<provider>Unknown</provider>
@@ -519,7 +519,7 @@
 		<browserCode>FF</browserCode>
 		<browserVersion>3.6</browserVersion>
 		<screenType>normal</screenType>
-		<deviceType>desktop</deviceType>
+		<deviceType>Desktop</deviceType>
 		<resolution>1024x768</resolution>
 		<screenTypeIcon>plugins/UserSettings/images/screens/normal.gif</screenTypeIcon>
 		<plugins>flash, java</plugins>
@@ -631,6 +631,10 @@
 				<pageId>3</pageId>
 				<customVariables>
 					<row>
+						<customVariablePageName2>_pkp</customVariablePageName2>
+						<customVariablePageValue2>888</customVariablePageValue2>
+					</row>
+					<row>
 						<customVariablePageName3>_pks</customVariablePageName3>
 						<customVariablePageValue3>SKU VERY nice indeed</customVariablePageValue3>
 					</row>
@@ -730,7 +734,7 @@
 		<browserCode>FF</browserCode>
 		<browserVersion>3.6</browserVersion>
 		<screenType>normal</screenType>
-		<deviceType>desktop</deviceType>
+		<deviceType>Desktop</deviceType>
 		<resolution>1024x768</resolution>
 		<screenTypeIcon>plugins/UserSettings/images/screens/normal.gif</screenTypeIcon>
 		<plugins>flash, java</plugins>

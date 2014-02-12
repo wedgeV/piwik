@@ -5,8 +5,6 @@
  * @link http://piwik.org
  * @license http://www.gnu.org/licenses/gpl-3.0.html GPL v3 or later
  *
- * @category Piwik_Plugins
- * @package UserSettings
  */
 namespace Piwik\Plugins\UserSettings;
 
@@ -15,7 +13,6 @@ use Piwik\ViewDataTable\Factory;
 
 /**
  *
- * @package UserSettings
  */
 class Controller extends \Piwik\Plugin\Controller
 {
@@ -32,61 +29,61 @@ class Controller extends \Piwik\Plugin\Controller
         $view->dataTableMobileVsDesktop = $this->getMobileVsDesktop(true);
         $view->dataTableBrowserLanguage = $this->getLanguage(true);
 
-        echo $view->render();
+        return $view->render();
     }
 
-    public function getResolution($fetch = false)
+    public function getResolution()
     {
-        return Factory::renderReport($this->pluginName, __FUNCTION__, $fetch);
+        return $this->renderReport(__FUNCTION__);
     }
 
-    public function getConfiguration($fetch = false)
+    public function getConfiguration()
     {
-        return Factory::renderReport($this->pluginName, __FUNCTION__, $fetch);
+        return $this->renderReport(__FUNCTION__);
     }
 
-    public function getOS($fetch = false)
+    public function getOS()
     {
-        return Factory::renderReport($this->pluginName, __FUNCTION__, $fetch);
+        return $this->renderReport(__FUNCTION__);
     }
 
-    public function getOSFamily($fetch = false)
+    public function getOSFamily()
     {
-        return Factory::renderReport($this->pluginName, __FUNCTION__, $fetch);
+        return $this->renderReport(__FUNCTION__);
     }
 
-    public function getMobileVsDesktop($fetch = false)
+    public function getMobileVsDesktop()
     {
-        return Factory::renderReport($this->pluginName, __FUNCTION__, $fetch);
+        return $this->renderReport(__FUNCTION__);
     }
 
-    public function getBrowserVersion($fetch = false)
+    public function getBrowserVersion()
     {
-        return Factory::renderReport($this->pluginName, __FUNCTION__, $fetch);
+        return $this->renderReport(__FUNCTION__);
     }
 
-    public function getBrowser($fetch = false)
+    public function getBrowser()
     {
-        return Factory::renderReport($this->pluginName, __FUNCTION__, $fetch);
+        return $this->renderReport(__FUNCTION__);
     }
 
-    public function getBrowserType($fetch = false)
+    public function getBrowserType()
     {
-        return Factory::renderReport($this->pluginName, __FUNCTION__, $fetch);
+        return $this->renderReport(__FUNCTION__);
     }
 
-    public function getWideScreen($fetch = false)
+    public function getWideScreen()
     {
-        return Factory::renderReport($this->pluginName, __FUNCTION__, $fetch);
+        return $this->renderReport(__FUNCTION__);
     }
 
-    public function getPlugin($fetch = false)
+    public function getPlugin()
     {
-        return Factory::renderReport($this->pluginName, __FUNCTION__, $fetch);
+        return $this->renderReport(__FUNCTION__);
     }
 
-    public function getLanguage($fetch = false)
+    public function getLanguage()
     {
-        return Factory::renderReport($this->pluginName, __FUNCTION__, $fetch);
+        return $this->renderReport(__FUNCTION__);
     }
 }

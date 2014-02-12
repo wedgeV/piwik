@@ -5,8 +5,6 @@
  * @link http://piwik.org
  * @license http://www.gnu.org/licenses/gpl-3.0.html GPL v3 or later
  *
- * @category Piwik_Plugins
- * @package VisitFrequency
  */
 namespace Piwik\Plugins\VisitFrequency;
 
@@ -17,26 +15,25 @@ use Piwik\View;
 
 /**
  *
- * @package VisitFrequency
  */
 class Controller extends \Piwik\Plugin\Controller
 {
     function index()
     {
         $view = new View('@VisitFrequency/index');
-        $view->graphEvolutionVisitFrequency = $this->getEvolutionGraph(true, array('nb_visits_returning'));
+        $view->graphEvolutionVisitFrequency = $this->getEvolutionGraph(array('nb_visits_returning'));
         $this->setSparklinesAndNumbers($view);
-        echo $view->render();
+        return $view->render();
     }
 
     public function getSparklines()
     {
         $view = new View('@VisitFrequency/getSparklines');
         $this->setSparklinesAndNumbers($view);
-        echo $view->render();
+        return $view->render();
     }
 
-    public function getEvolutionGraph($fetch = false, array $columns = array())
+    public function getEvolutionGraph(array $columns = array())
     {
         if (empty($columns)) {
             $columns = Common::getRequestVar('columns');
@@ -77,7 +74,7 @@ class Controller extends \Piwik\Plugin\Controller
         $view = $this->getLastUnitGraphAcrossPlugins($this->pluginName, __FUNCTION__, $columns,
             $selectableColumns, $documentation);
 
-        return $this->renderView($view, $fetch);
+        return $this->renderView($view);
     }
 
     protected function setSparklinesAndNumbers($view)

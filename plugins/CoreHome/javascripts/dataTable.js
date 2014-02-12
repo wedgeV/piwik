@@ -17,17 +17,17 @@ var exports = require('piwik/UI'),
 /**
  * This class contains the client side logic for viewing and interacting with
  * Piwik datatables.
- * 
+ *
  * The id attribute for DataTables is set dynamically by the initNewDataTables
  * method, and this class instance is stored using the jQuery $.data function
  * with the 'uiControlObject' key.
- * 
+ *
  * To find a datatable element by report (ie, 'UserSettings.getBrowser'),
  * use piwik.DataTable.getDataTableByReport.
- * 
+ *
  * To get the dataTable JS instance (an instance of this class) for a
  * datatable HTML element, use $(element).data('uiControlObject').
- * 
+ *
  * @constructor
  */
 function DataTable(element) {
@@ -120,7 +120,7 @@ $.extend(DataTable.prototype, UIControl.prototype, {
     //Reset DataTable filters (used before a reload or view change)
     resetAllFilters: function () {
         var self = this;
-        var FiltersToRestore = [];
+        var FiltersToRestore = {};
         var filters = [
             'filter_column',
             'filter_pattern',
@@ -138,7 +138,7 @@ $.extend(DataTable.prototype, UIControl.prototype, {
             'totalRows'
         ];
 
-        for (var key in filters) {
+        for (var key = 0; key < filters.length; key++) {
             var value = filters[key];
             FiltersToRestore[value] = self.param[value];
             delete self.param[value];
@@ -150,6 +150,7 @@ $.extend(DataTable.prototype, UIControl.prototype, {
     //Restores the filters to the values given in the array in parameters
     restoreAllFilters: function (FiltersToRestore) {
         var self = this;
+
         for (var key in FiltersToRestore) {
             self.param[key] = FiltersToRestore[key];
         }
@@ -194,6 +195,7 @@ $.extend(DataTable.prototype, UIControl.prototype, {
 
         var container = $('#' + self.workingDivId + ' .piwik-graph');
 
+
         var params = {};
         for (var key in self.param) {
             if (typeof self.param[key] != "undefined" && self.param[key] != '')
@@ -201,7 +203,9 @@ $.extend(DataTable.prototype, UIControl.prototype, {
         }
 
         var ajaxRequest = new ajaxHelper();
+
         ajaxRequest.addParams(params, 'get');
+
         ajaxRequest.setCallback(
             function (response) {
                 container.trigger('piwikDestroyPlot');
@@ -210,7 +214,9 @@ $.extend(DataTable.prototype, UIControl.prototype, {
             }
         );
         ajaxRequest.setFormat('html');
+
         ajaxRequest.send(false);
+
     },
 
     // Function called when the AJAX request is successful
@@ -277,6 +283,7 @@ $.extend(DataTable.prototype, UIControl.prototype, {
 		self.handleCellTooltips(domElem);
         self.handleRelatedReports(domElem);
         self.handleTriggeredEvents(domElem);
+        self.handleColumnHighlighting(domElem);
     },
 
     handleLimit: function (domElem) {
@@ -465,9 +472,9 @@ $.extend(DataTable.prototype, UIControl.prototype, {
                             self.param.filter_column = 'label';
                             self.param.filter_pattern = keyword;
                         }
-						
+
 						delete self.param.totalRows;
-						
+
                         self.reloadAjaxDataTable(true, callbackSuccess);
                     }
                 );
@@ -479,8 +486,8 @@ $.extend(DataTable.prototype, UIControl.prototype, {
                 // in the case there is a searched keyword we display the RESET image
                 if (currentPattern) {
                     var target = this;
-                    var clearImg = $('<span style="position: relative;">\
-							<img src="plugins/CoreHome/images/reset_search.png" style="position: absolute; top: 4px; left: -15px; cursor: pointer; display: inline;" title="Clear" />\
+                    var clearImg = $('<span class="searchReset">\
+							<img src="plugins/CoreHome/images/reset_search.png" title="Clear" />\
 							</span>')
                         .click(function () {
                             $('.searchInput', target).val('');
@@ -758,7 +765,7 @@ $.extend(DataTable.prototype, UIControl.prototype, {
             if (!id) {
                 return;
             }
-            
+
             var handler = DataTable._footerIconHandlers[id];
             if (!handler) {
                 handler = DataTable._footerIconHandlers['table'];
@@ -900,7 +907,7 @@ $.extend(DataTable.prototype, UIControl.prototype, {
                 }
                 if (label) {
                     label = label.split(',');
-                    
+
                     if (label.length > 1) {
                         for (var i = 0; i != label.length; ++i) {
                             str += '&label[]=' + encodeURIComponent(label[i]);
@@ -1090,6 +1097,11 @@ $.extend(DataTable.prototype, UIControl.prototype, {
             return;
         }
 
+        if(domElemToTruncate.find('.truncationDisabled').length > 0) {
+            return;
+        }
+
+
         // make the original text (before truncation) available for others.
         // the .truncate plugins adds a title to the dom element but the .tooltip
         // plugin removes that again.
@@ -1145,7 +1157,61 @@ $.extend(DataTable.prototype, UIControl.prototype, {
         $("tr:even td", domElem).slice(1).addClass('column columneven');
 
         $('td span.label', domElem).each(function () { self.truncate($(this)); });
+    },
 
+    handleColumnHighlighting: function (domElem) {
+
+        var maxWidth = {};
+        var currentNthChild = null;
+        var self = this;
+
+        // higlight all columns on hover
+        $('td', domElem).hover(
+            function() {
+                var table    = $(this).closest('table');
+                var nthChild = $(this).parent('tr').children().index($(this)) + 1;
+                var rows     = $('> tbody > tr', table);
+
+                if (!maxWidth[nthChild]) {
+                    maxWidth[nthChild] = 0;
+                    rows.find("td:nth-child(" + (nthChild) + ") .value").each(function (index, element) {
+                        var width    = $(element).width();
+                        if (width > maxWidth[nthChild]) {
+                            maxWidth[nthChild] = width;
+                        }
+                    });
+                    rows.find("td:nth-child(" + (nthChild) + ") .value").each(function (index, element) {
+                        $(element).css({width: maxWidth[nthChild], display: 'inline-block'});
+                    });
+                }
+
+                if (currentNthChild === nthChild) {
+                    return;
+                }
+
+                currentNthChild = nthChild;
+
+                rows.children("td:nth-child(" + (nthChild) + ")").addClass('highlight');
+                self.repositionRowActions($(this).parent('tr'));
+            },
+            function(event) {
+
+                var table    = $(this).closest('table');
+                var tr       = $(this).parent('tr').children();
+                var nthChild = $(this).parent('tr').children().index($(this));
+                var targetTd = $(event.relatedTarget).closest('td');
+                var nthChildTarget = targetTd.parent('tr').children().index(targetTd);
+
+                if (nthChild == nthChildTarget) {
+                    return;
+                }
+
+                currentNthChild = null;
+
+                var rows     = $('tr', table);
+                rows.find("td:nth-child(" + (nthChild + 1) + ")").removeClass('highlight');
+            }
+        );
     },
 
     //behaviour for 'nested DataTable' (DataTable loaded on a click on a row)
@@ -1184,9 +1250,9 @@ $.extend(DataTable.prototype, UIControl.prototype, {
 
                     self.param.idSubtable = idSubTable;
                     self.param.action = self.props.subtable_controller_action;
-					
+
 					delete self.param.totalRows;
-					
+
                     self.reloadAjaxDataTable(false, function(response) {
                         self.dataTableLoaded(response, divIdToReplaceWithSubTable);
                     });
@@ -1319,7 +1385,7 @@ $.extend(DataTable.prototype, UIControl.prototype, {
     handleRowActions: function (domElem) {
         this.doHandleRowActions(domElem.find('table > tbody > tr'));
     },
-	
+
 	handleCellTooltips: function(domElem) {
 		domElem.find('span.cell-tooltip').tooltip({
 			track: true,
@@ -1370,6 +1436,7 @@ $.extend(DataTable.prototype, UIControl.prototype, {
                 // modify parameters
                 self.resetAllFilters();
                 var newParams = broadcast.getValuesFromUrl(url);
+
                 for (var key in newParams) {
                     self.param[key] = decodeURIComponent(newParams[key]);
                 }
@@ -1447,6 +1514,7 @@ $.extend(DataTable.prototype, UIControl.prototype, {
 
             // show actions that are available for the row on hover
             var actionsDom = null;
+
             tr.hover(function () {
                     if (actionsDom === null) {
                         // create dom nodes on the fly
@@ -1531,10 +1599,19 @@ $.extend(DataTable.prototype, UIControl.prototype, {
     },
 
     repositionRowActions: function (tr) {
+        if (!tr) {
+            return;
+        }
+
         var td = tr.find('td:first');
         var actions = tr.find('div.dataTableRowActions');
+
+        if (!actions) {
+            return;
+        }
+
         actions.height(tr.innerHeight() - 2);
-        actions.css('marginLeft', (td.width() + 5 - actions.outerWidth()) + 'px');
+        actions.css('marginLeft', (td.width() + 3 - actions.outerWidth()) + 'px');
     },
 
     _findReportHeader: function (domElem) {

@@ -5,16 +5,14 @@
  * @link http://piwik.org
  * @license http://www.gnu.org/licenses/gpl-3.0.html GPL v3 or later
  *
- * @category Piwik
- * @package Piwik
  */
 namespace Piwik\DataTable\Filter;
 
 use Piwik\DataTable;
-use Piwik\DataTable\Filter;
+use Piwik\DataTable\BaseFilter;
 
 /**
- * Delete all rows for which a callback returns true. // TODO: modify
+ * Deletes all rows for which a callback returns true.
  *
  * **Basic usage example**
  * 
@@ -23,11 +21,9 @@ use Piwik\DataTable\Filter;
  *         return in_array($label, $labelsToRemove);
  *     }));
  * 
- * @package Piwik
- * @subpackage DataTable
  * @api
  */
-class ColumnCallbackDeleteRow extends Filter
+class ColumnCallbackDeleteRow extends BaseFilter
 {
     private $columnToFilter;
     private $function;

@@ -5,8 +5,6 @@
  * @link http://piwik.org
  * @license http://www.gnu.org/licenses/gpl-3.0.html GPL v3 or later
  *
- * @category Piwik_Plugins
- * @package MultiSites
  */
 namespace Piwik\Plugins\MultiSites;
 
@@ -135,7 +133,7 @@ class API extends \Piwik\Plugin\API
 
     /**
      * Same as getAll but for a unique Piwik site
-     * @see Piwik_MultiSites_API::getAll()
+     * @see Piwik\Plugins\MultiSites\API::getAll()
      *
      * @param int $idSite Id of the Piwik site
      * @param string $period The period type to get data for.
@@ -164,24 +162,21 @@ class API extends \Piwik\Plugin\API
     {
         $allWebsitesRequested = ($idSitesOrIdSite == 'all');
         if ($allWebsitesRequested) {
-            if (Piwik::isUserIsSuperUser()
+            // First clear cache
+            Site::clearCache();
+            // Then, warm the cache with only the data we should have access to
+            if (Piwik::hasUserSuperUserAccess()
                 // Hack: when this API function is called as a Scheduled Task, Super User status is enforced.
                 // This means this function would return ALL websites in all cases.
                 // Instead, we make sure that only the right set of data is returned
                 && !TaskScheduler::isTaskBeingExecuted()
             ) {
-                Site::setSites(
-                    APISitesManager::getInstance()->getAllSites()
-                );
+                $sites = APISitesManager::getInstance()->getAllSites();
             } else {
-                Site::setSitesFromArray(
-                    APISitesManager::getInstance()->getSitesWithAtLeastViewAccess($limit = false, $_restrictSitesToLogin)
-                );
+                $sites = APISitesManager::getInstance()->getSitesWithAtLeastViewAccess($limit = false, $_restrictSitesToLogin);
             }
-        }
-
-        if ($allWebsitesRequested) {
-            $sitesToProblablyAdd = Site::$infoSites;
+            // Both calls above have called Site::setSitesFromArray. We now get these sites:
+            $sitesToProblablyAdd = Site::getSites();
         } else {
             $sitesToProblablyAdd = array(APISitesManager::getInstance()->getSiteFromId($idSitesOrIdSite));
         }
@@ -213,21 +208,7 @@ class API extends \Piwik\Plugin\API
         // $dataTable instanceOf Set
         $dataTable = $archive->getDataTableFromNumeric($fieldsToGet);
 
-        // get rid of the DataTable\Map that is created by the IndexedBySite archive type
-        if ($dataTable instanceof DataTable\Map
-            && $multipleWebsitesRequested
-        ) {
-            $dataTable = $dataTable->mergeChildren();
-        } else {
-            if (!($dataTable instanceof DataTable\Map)
-                && $dataTable->getRowsCount() > 0
-            ) {
-                $firstSite = is_array($idSitesOrIdSite) ? reset($idSitesOrIdSite) : $idSitesOrIdSite;
-
-                $firstDataTableRow = $dataTable->getFirstRow();
-                $firstDataTableRow->setColumn('label', $firstSite);
-            }
-        }
+        $dataTable= $this->mergeDataTableMapAndPopulateLabel($idSitesOrIdSite, $multipleWebsitesRequested, $dataTable);
 
         if ($dataTable instanceof DataTable\Map) {
             foreach ($dataTable->getDataTables() as $table) {
@@ -243,21 +224,21 @@ class API extends \Piwik\Plugin\API
         // if the period isn't a range & a lastN/previousN date isn't used, we get the same
         // data for the last period to show the evolution of visits/actions/revenue
         list($strLastDate, $lastPeriod) = Range::getLastDate($date, $period);
+
         if ($strLastDate !== false) {
+
             if ($lastPeriod !== false) {
                 // NOTE: no easy way to set last period date metadata when range of dates is requested.
                 //       will be easier if DataTable\Map::metadata is removed, and metadata that is
                 //       put there is put directly in DataTable::metadata.
                 $dataTable->setMetadata(self::getLastPeriodMetadataName('date'), $lastPeriod);
             }
+
             $pastArchive = Archive::build($idSitesOrIdSite, $period, $strLastDate, $segment, $_restrictSitesToLogin);
+
             $pastData = $pastArchive->getDataTableFromNumeric($fieldsToGet);
 
-            if ($pastData instanceof DataTable\Map
-                && $multipleWebsitesRequested
-            ) {
-                $pastData = $pastData->mergeChildren();
-            }
+            $pastData = $this->mergeDataTableMapAndPopulateLabel($idSitesOrIdSite, $multipleWebsitesRequested, $pastData);
 
             // use past data to calculate evolution percentages
             $this->calculateEvolutionPercentages($dataTable, $pastData, $apiMetrics);
@@ -520,6 +501,28 @@ class API extends \Piwik\Plugin\API
                 }
             }
         }
+    }
+
+    private function mergeDataTableMapAndPopulateLabel($idSitesOrIdSite, $multipleWebsitesRequested, $dataTable)
+    {
+        // get rid of the DataTable\Map that is created by the IndexedBySite archive type
+        if ($dataTable instanceof DataTable\Map && $multipleWebsitesRequested) {
+
+            return $dataTable->mergeChildren();
+
+        } else {
+
+            if (!$dataTable instanceof DataTable\Map && $dataTable->getRowsCount() > 0) {
+
+                $firstSite = is_array($idSitesOrIdSite) ? reset($idSitesOrIdSite) : $idSitesOrIdSite;
+
+                $firstDataTableRow = $dataTable->getFirstRow();
+
+                $firstDataTableRow->setColumn('label', $firstSite);
+            }
+        }
+
+        return $dataTable;
     }
 }
 

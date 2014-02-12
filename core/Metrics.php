@@ -5,8 +5,6 @@
  * @link http://piwik.org
  * @license http://www.gnu.org/licenses/gpl-3.0.html GPL v3 or later
  *
- * @category Piwik
- * @package Piwik
  */
 namespace Piwik;
 
@@ -18,7 +16,7 @@ require_once PIWIK_INCLUDE_PATH . "/core/Piwik.php";
  * related helper functions.
  * 
  * Of note are the `INDEX_...` constants. In the database, metric column names
- * are stored in DataTable rows are stored as integers to save space. The integer
+ * in {@link DataTable} rows are stored as integers to save space. The integer
  * values used are determined by these constants.
  *
  * @api
@@ -284,6 +282,36 @@ class Metrics
             'conversion_rate'      => 'General_ColumnConversionRate',
         );
         return array_map(array('\\Piwik\\Piwik','translate'), $translations);
+    }
+
+    static public function getReadableColumnName($columnIdRaw)
+    {
+        $mappingIdToName = self::$mappingFromIdToName;
+
+        if (array_key_exists($columnIdRaw, $mappingIdToName)) {
+
+            return $mappingIdToName[$columnIdRaw];
+        }
+
+        return $columnIdRaw;
+    }
+
+    static public function getMetricIdsToProcessReportTotal()
+    {
+        return array(
+            self::INDEX_NB_VISITS,
+            self::INDEX_NB_UNIQ_VISITORS,
+            self::INDEX_NB_ACTIONS,
+            self::INDEX_PAGE_NB_HITS,
+            self::INDEX_NB_VISITS_CONVERTED,
+            self::INDEX_NB_CONVERSIONS,
+            self::INDEX_BOUNCE_COUNT,
+            self::INDEX_PAGE_ENTRY_BOUNCE_COUNT,
+            self::INDEX_PAGE_ENTRY_NB_VISITS,
+            self::INDEX_PAGE_ENTRY_NB_ACTIONS,
+            self::INDEX_PAGE_EXIT_NB_VISITS,
+            self::INDEX_PAGE_EXIT_NB_UNIQ_VISITORS
+        );
     }
 
     static public function getDefaultMetricsDocumentation()

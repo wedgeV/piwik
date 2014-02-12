@@ -5,8 +5,6 @@
  * @link http://piwik.org
  * @license http://www.gnu.org/licenses/gpl-3.0.html GPL v3 or later
  *
- * @category Piwik_Plugins
- * @package Actions
  */
 namespace Piwik\Plugins\Actions;
 
@@ -36,7 +34,6 @@ use Piwik\Tracker\PageUrl;
  * and an outlink via "getOutlink".
  *
  * Note: pageName, pageUrl, outlinkUrl, downloadUrl parameters must be URL encoded before you call the API.
- * @package Actions
  * @method static \Piwik\Plugins\Actions\API getInstance()
  */
 class API extends \Piwik\Plugin\API
@@ -351,11 +348,11 @@ class API extends \Piwik\Plugin\API
             foreach ($customVariableDatatables as $key => $customVariableTableForDate) {
                 // we do not enter the IF, in the case idSite=1,3 AND period=day&date=datefrom,dateto,
                 if ($customVariableTableForDate instanceof DataTable
-                    && $customVariableTableForDate->getMetadata('period')
+                    && $customVariableTableForDate->getMetadata(Archive\DataTableFactory::TABLE_METADATA_PERIOD_INDEX)
                 ) {
                     $row = $customVariableTableForDate->getRowFromLabel($customVarNameToLookFor);
                     if ($row) {
-                        $dateRewrite = $customVariableTableForDate->getMetadata('period')->getDateStart()->toString();
+                        $dateRewrite = $customVariableTableForDate->getMetadata(Archive\DataTableFactory::TABLE_METADATA_PERIOD_INDEX)->getDateStart()->toString();
                         $idSubtable = $row->getIdSubDataTable();
                         $categories = APICustomVariables::getInstance()->getCustomVariablesValuesFromNameId($idSite, $period, $dateRewrite, $idSubtable, $segment);
                         $dataTable->addTable($categories, $key);
@@ -477,6 +474,9 @@ class API extends \Piwik\Plugin\API
      */
     protected function filterPageDatatable($dataTable)
     {
+        $columnsToRemove = array('bounce_rate');
+        $dataTable->queueFilter('ColumnDelete', array($columnsToRemove));
+
         // Average time on page = total time on page / number visits on that page
         $dataTable->queueFilter('ColumnCallbackAddColumnQuotient', array('avg_time_on_page', 'sum_time_spent', 'nb_visits', 0));
 

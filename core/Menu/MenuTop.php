@@ -5,8 +5,6 @@
  * @link http://piwik.org
  * @license http://www.gnu.org/licenses/gpl-3.0.html GPL v3 or later
  *
- * @category Piwik
- * @package Piwik_Menu
  */
 namespace Piwik\Menu;
 use Piwik\Piwik;
@@ -14,7 +12,7 @@ use Piwik\Piwik;
 
 /**
  * Contains menu entries for the Top menu (the menu at the very top of the page).
- * Plugins can subscribe to the [Menu.Top.addItems](#) event to add new pages to
+ * Plugins can subscribe to the {@hook Menu.Top.addItems} event to add new pages to
  * the top menu.
  * 
  * **Example**
@@ -31,7 +29,7 @@ use Piwik\Piwik;
  *         );
  *     }
  * 
- * @package Piwik_Menu
+ * @method static \Piwik\Menu\MenuTop getInstance()
  */
 class MenuTop extends MenuAbstract
 {
@@ -56,6 +54,11 @@ class MenuTop extends MenuAbstract
         } else {
             MenuTop::getInstance()->add($topMenuName, null, $url, $displayedForCurrentUser, $order, $tooltip);
         }
+    }
+
+    public static function removeEntry($menuName, $subMenuName = false)
+    {
+        MenuTop::getInstance()->remove($menuName, $subMenuName);
     }
 
 
@@ -91,10 +94,11 @@ class MenuTop extends MenuAbstract
 
             /**
              * Triggered when collecting all available menu items that are be displayed on the very top of every
-             * page, next to the login/logout links. Subscribe to this event if you want to add one or more items
-             * to the top menu.
+             * page, next to the login/logout links.
              * 
-             * Menu items should be added via the [MenuTop::addEntry](#addEntry) method.
+             * Subscribe to this event if you want to add one or more items to the top menu.
+             * 
+             * Menu items should be added via the {@link addEntry()} method.
              *
              * **Example**
              * 
@@ -105,7 +109,7 @@ class MenuTop extends MenuAbstract
              *         MenuTop::addEntry(
              *             'TopMenuName',
              *             array('module' => 'MyPlugin', 'action' => 'index'),
-             *             $showOnlyIf = Piwik::isUserIsSuperUser(),
+             *             $showOnlyIf = Piwik::hasUserSuperUserAccess(),
              *             $order = 6
              *         );
              *     }

@@ -5,8 +5,6 @@
  * @link http://piwik.org
  * @license http://www.gnu.org/licenses/gpl-3.0.html GPL v3 or later
  *
- * @category Piwik
- * @package Piwik
  */
 namespace Piwik\Period;
 
@@ -25,10 +23,8 @@ use Piwik\Piwik;
  * date=2007-07-24,2013-11-15).
  *
  * The range period differs from other periods mainly in that since it is arbitrary,
- * range periods are not archived by the archive.php cron script.
+ * range periods are not pre-archived by the **archive.php** cron script.
  *
- * @package Piwik
- * @subpackage Period
  * @api
  */
 class Range extends Period
@@ -86,7 +82,7 @@ class Range extends Period
     }
 
     /**
-     * Returns the start date of the period
+     * Returns the start date of the period.
      *
      * @return Date
      * @throws Exception
@@ -101,7 +97,7 @@ class Range extends Period
     }
 
     /**
-     * Returns the current period as a string
+     * Returns the current period as a string.
      *
      * @return string
      */
@@ -134,7 +130,7 @@ class Range extends Period
     }
 
     /**
-     * Sets the default end date of the period
+     * Sets the default end date of the period.
      *
      * @param Date $oDate
      */
@@ -218,11 +214,11 @@ class Range extends Period
     }
 
     /**
-     * Given a date string, returns false if not a date range,
-     * or returns the array containing date start, date end
+     * Given a date string, returns `false` if not a date range,
+     * or returns the array containing start and end dates.
      *
      * @param string $dateString
-     * @return mixed  array(1 => dateStartString, 2 => dateEndString ) or false if the input was not a date range
+     * @return mixed  array(1 => dateStartString, 2 => dateEndString) or `false` if the input was not a date range.
      */
     static public function parseDateRange($dateString)
     {
@@ -236,7 +232,7 @@ class Range extends Period
     protected $endDate = null;
 
     /**
-     * Returns the end date of the period
+     * Returns the end date of the period.
      *
      * @return null|Date
      */
@@ -249,7 +245,7 @@ class Range extends Period
     }
 
     /**
-     * Determine which kind of period is best to use
+     * Determine which kind of period is best to use.
      * See Range.test.php
      *
      * @param Date $startDate
@@ -400,7 +396,7 @@ class Range extends Period
     }
 
     /**
-     * Returns a date ragne string given a period type, end date and number of periods
+     * Returns a date range string given a period type, end date and number of periods
      * the range spans over.
      *
      * @param string $period The sub period type, `'day'`, `'week'`, `'month'` and `'year'`.

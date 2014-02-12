@@ -5,21 +5,19 @@
  * @link http://piwik.org
  * @license http://www.gnu.org/licenses/gpl-3.0.html GPL v3 or later
  *
- * @category Piwik
- * @package Piwik
  */
 namespace Piwik;
 
 /**
  * Contains helper methods that can be used to get information regarding the
- * server, its settings and PHP settings.
+ * server, its settings and currently used PHP settings.
  *
- * @package Piwik
  */
 class SettingsServer
 {
     /**
-     * Returns true if the current script execution was triggered misc/cron/archive.php.
+     * Returns true if the current script execution was triggered by the cron archiving
+     * script (**misc/cron/archive.php**).
      *
      * Helpful for error handling: directly throw error without HTML (eg. when DB is down).
      * 
@@ -33,7 +31,7 @@ class SettingsServer
     }
 
     /**
-     * Returns true if running on Microsoft IIS 7 (or above), false if otherwise.
+     * Returns `true` if running on Microsoft IIS 7 (or above), `false` if otherwise.
      *
      * @return bool
      * @api
@@ -48,7 +46,7 @@ class SettingsServer
     }
 
     /**
-     * Returns true if running on an Apache web server, false if otherwise.
+     * Returns `true` if running on an Apache web server, `false` if otherwise.
      *
      * @return bool
      * @api
@@ -62,7 +60,7 @@ class SettingsServer
     }
 
     /**
-     * Returns true if running on a Windows operating system, false if otherwise.
+     * Returns `true` if running on a Windows operating system, `false` if otherwise.
      *
      * @since 0.6.5
      * @return bool
@@ -74,8 +72,8 @@ class SettingsServer
     }
 
     /**
-     * Returns true if this php version/build supports timezone manipulation
-     * (e.g., php >= 5.2, or compiled with EXPERIMENTAL_DATE_SUPPORT=1 for
+     * Returns `true` if this PHP version/build supports timezone manipulation
+     * (e.g., php >= 5.2, or compiled with **EXPERIMENTAL_DATE_SUPPORT=1** for
      * php < 5.2).
      *
      * @return bool
@@ -92,9 +90,9 @@ class SettingsServer
     }
 
     /**
-     * Returns true if the GD PHP extension is available, false if otherwise.
+     * Returns `true` if the GD PHP extension is available, `false` if otherwise.
      * 
-     * ImageGraph and sparklines depend on the GD extension.
+     * _Note: ImageGraph and the sparkline report visualization depend on the GD extension._
      *
      * @return bool
      * @api
@@ -123,7 +121,7 @@ class SettingsServer
         $minimumMemoryLimit = Config::getInstance()->General['minimum_memory_limit'];
 
         if (self::isArchivePhpTriggered()
-            && Piwik::isUserIsSuperUser()
+            && Piwik::hasUserSuperUserAccess()
         ) {
             // archive.php: no time limit, high memory limit
             self::setMaxExecutionTime(0);

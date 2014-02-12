@@ -5,8 +5,6 @@
  * @link http://piwik.org
  * @license http://www.gnu.org/licenses/gpl-3.0.html GPL v3 or later
  *
- * @category Piwik_Plugins
- * @package Goals
  */
 namespace Piwik\Plugins\Goals;
 
@@ -24,7 +22,6 @@ use Piwik\WidgetsList;
 
 /**
  *
- * @package Goals
  */
 class Goals extends \Piwik\Plugin
 {
@@ -84,16 +81,16 @@ class Goals extends \Piwik\Plugin
     }
 
     /**
-     * @see Piwik_Plugin::getListHooksRegistered
+     * @see Piwik\Plugin::getListHooksRegistered
      */
     public function getListHooksRegistered()
     {
         $hooks = array(
             'AssetManager.getJavaScriptFiles'        => 'getJsFiles',
             'AssetManager.getStylesheetFiles'        => 'getStylesheetFiles',
-            'Site.getSiteAttributes'                 => 'fetchGoalsFromDb',
+            'Tracker.Cache.getSiteAttributes'        => 'fetchGoalsFromDb',
             'API.getReportMetadata.end'              => 'getReportMetadata',
-            'API.getSegmentsMetadata'                => 'getSegmentsMetadata',
+            'API.getSegmentDimensionMetadata'        => 'getSegmentsMetadata',
             'WidgetsList.addWidgets'                 => 'addWidgets',
             'Menu.Reporting.addItems'                => 'addMenus',
             'SitesManager.deleteSite.end'            => 'deleteSiteGoals',
@@ -364,14 +361,31 @@ class Goals extends \Piwik\Plugin
 
         /**
          * Triggered when gathering all reports that contain Goal metrics. The list of reports
-         * will be displayed on the left column of the bottom of the Goals Overview page and
-         * each individual Goal page.
+         * will be displayed on the left column of the bottom of every _Goals_ page.
          * 
-         * If plugins define reports that contain Goal metrics (such as conversions or revenue),
-         * they can use this event to make sure their reports can be loaded on the relevant
-         * Goals pages.
+         * If plugins define reports that contain goal metrics (such as **conversions** or **revenue**),
+         * they can use this event to make sure their reports can be viewed on Goals pages.
          * 
-         * @param array &$reportsWithGoals The list of reports that have Goal metrics.
+         * **Example**
+         * 
+         *     public function getReportsWithGoalMetrics(&$reports)
+         *     {
+         *         $reports[] = array(
+         *             'category' => Piwik::translate('MyPlugin_myReportCategory'),
+         *             'name' => Piwik::translate('MyPlugin_myReportDimension'),
+         *             'module' => 'MyPlugin',
+         *             'action' => 'getMyReport'
+         *         );
+         *     }
+         * 
+         * @param array &$reportsWithGoals The list of arrays describing reports that have Goal metrics.
+         *                                 Each element of this array must be an array with the following
+         *                                 properties:
+         * 
+         *                                 - **category**: The report category. This should be a translated string.
+         *                                 - **name**: The report's translated name.
+         *                                 - **module**: The plugin the report is in, eg, `'UserCountry'`.
+         *                                 - **action**: The API method of the report, eg, `'getCountry'`.
          */
         Piwik::postEvent('Goals.getReportsWithGoalMetrics', array(&$reportsWithGoals));
 
@@ -402,12 +416,14 @@ class Goals extends \Piwik\Plugin
             array('category' => Piwik::translate('General_Visit'),
                   'name'     => Piwik::translate('Goals_VisitsUntilConv'),
                   'module'   => 'Goals',
-                  'action'   => 'getVisitsUntilConversion'
+                  'action'   => 'getVisitsUntilConversion',
+                  'viewDataTable' => 'table',
             ),
             array('category' => Piwik::translate('General_Visit'),
                   'name'     => Piwik::translate('Goals_DaysToConv'),
                   'module'   => 'Goals',
-                  'action'   => 'getDaysToConversion'
+                  'action'   => 'getDaysToConversion',
+                  'viewDataTable' => 'table',
             )
         );
         $dimensions = array_merge($dimensions, $reportWithGoalMetrics);

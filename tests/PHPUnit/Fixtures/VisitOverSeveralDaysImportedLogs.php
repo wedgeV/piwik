@@ -29,7 +29,9 @@ class Test_Piwik_Fixture_VisitOverSeveralDaysImportedLogs extends Test_Piwik_Bas
 
     public function setUpWebsitesAndGoals()
     {
-        self::createWebsite($this->dateTime);
+        if (!self::siteCreated($idSite = 1)) {
+            self::createWebsite($this->dateTime);
+        }
     }
 
     private function trackVisits()
@@ -43,7 +45,7 @@ class Test_Piwik_Fixture_VisitOverSeveralDaysImportedLogs extends Test_Piwik_Bas
      */
     private function logFromLogFileReverseVisitOrder()
     {
-        $logFile = PIWIK_INCLUDE_PATH . '/tests/resources/fake_logs_visits_in_reverse_chronological_order.log';
+        $logFile = PIWIK_INCLUDE_PATH . '/tests/resources/access-logs/fake_logs_visits_in_reverse_chronological_order.log';
 
         $opts = array('--idsite'                    => $this->idSite,
                       '--token-auth'                => self::getTokenAuth(),);

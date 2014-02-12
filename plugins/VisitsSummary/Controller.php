@@ -5,8 +5,6 @@
  * @link http://piwik.org
  * @license http://www.gnu.org/licenses/gpl-3.0.html GPL v3 or later
  *
- * @category Piwik_Plugins
- * @package VisitsSummary
  */
 namespace Piwik\Plugins\VisitsSummary;
 
@@ -21,7 +19,6 @@ use Piwik\View;
 
 /**
  *
- * @package VisitsSummary
  */
 class Controller extends \Piwik\Plugin\Controller
 {
@@ -29,9 +26,9 @@ class Controller extends \Piwik\Plugin\Controller
     {
         $view = new View('@VisitsSummary/index');
         $this->setPeriodVariablesView($view);
-        $view->graphEvolutionVisitsSummary = $this->getEvolutionGraph(true, array('nb_visits'));
+        $view->graphEvolutionVisitsSummary = $this->getEvolutionGraph(array('nb_visits'));
         $this->setSparklinesAndNumbers($view);
-        echo $view->render();
+        return $view->render();
     }
 
     public function getSparklines()
@@ -39,10 +36,10 @@ class Controller extends \Piwik\Plugin\Controller
         $view = new View('@VisitsSummary/getSparklines');
         $this->setPeriodVariablesView($view);
         $this->setSparklinesAndNumbers($view);
-        echo $view->render();
+        return $view->render();
     }
 
-    public function getEvolutionGraph($fetch = false, array $columns = array())
+    public function getEvolutionGraph(array $columns = array())
     {
         if (empty($columns)) {
             $columns = Common::getRequestVar('columns');
@@ -94,7 +91,7 @@ class Controller extends \Piwik\Plugin\Controller
         $view = $this->getLastUnitGraphAcrossPlugins($this->pluginName, __FUNCTION__, $columns,
             $selectableColumns, $documentation);
 
-        return $this->renderView($view, $fetch);
+        return $this->renderView($view);
     }
 
     static public function getVisitsSummary()

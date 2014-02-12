@@ -5,15 +5,13 @@
  * @link http://piwik.org
  * @license http://www.gnu.org/licenses/gpl-3.0.html GPL v3 or later
  *
- * @category Piwik
- * @package Piwik_Menu
  */
 namespace Piwik\Menu;
 use Piwik\Piwik;
 
 /**
  * Contains menu entries for the Main menu (the menu displayed under the Piwik logo).
- * Plugins can subscribe to the [Menu.Reporting.addItems](#) event to add new pages to
+ * Plugins can subscribe to the {@hook Menu.Reporting.addItems} event to add new pages to
  * the main menu.
  * 
  * **Example**
@@ -30,8 +28,8 @@ use Piwik\Piwik;
  *         );
  *     }
  * 
- * @package Piwik_Menu
  * @api
+ * @method static \Piwik\Menu\MenuMain getInstance()
  */
 class MenuMain extends MenuAbstract
 {
@@ -69,7 +67,7 @@ class MenuMain extends MenuAbstract
              * Triggered when collecting all available reporting menu items. Subscribe to this event if you
              * want to add one or more items to the Piwik reporting menu.
              * 
-             * Menu items should be added via the [Menu::add](#) method.
+             * Menu items should be added via the {@link add()} method.
              *
              * **Example**
              * 
@@ -81,7 +79,7 @@ class MenuMain extends MenuAbstract
              *             'CustomMenuName',
              *             'CustomSubmenuName',
              *             array('module' => 'MyPlugin', 'action' => 'index'),
-             *             $showOnlyIf = Piwik::isUserIsSuperUser(),
+             *             $showOnlyIf = Piwik::hasUserSuperUserAccess(),
              *             $order = 6
              *         );
              *     }

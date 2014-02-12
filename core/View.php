@@ -5,12 +5,11 @@
  * @link http://piwik.org
  * @license http://www.gnu.org/licenses/gpl-3.0.html GPL v3 or later
  *
- * @category Piwik
- * @package Piwik
  */
 namespace Piwik;
 
 use Exception;
+use Piwik\AssetManager\UIAssetCacheBuster;
 use Piwik\Plugins\SitesManager\API as APISitesManager;
 use Piwik\Plugins\UsersManager\API as APIUsersManager;
 use Piwik\View\ViewInterface;
@@ -30,8 +29,8 @@ if (!defined('PIWIK_USER_PATH')) {
  * View will also set several properties that will be available in all Twig
  * templates, including:
  * 
- * - **currentModule**: The value of the 'module' query parameter.
- * - **currentAction**: The value of the 'action' query parameter.
+ * - **currentModule**: The value of the **module** query parameter.
+ * - **currentAction**: The value of the **action** query parameter.
  * - **userLogin**: The current user login name.
  * - **sites**: List of site data for every site the current user has at least
  *              view access for.
@@ -46,6 +45,13 @@ if (!defined('PIWIK_USER_PATH')) {
  * - **loginModule**: The name of the currently used authentication module.
  * - **userAlias**: The alias of the current user.
  * 
+ * ### Template Naming Convention
+ * 
+ * Template files should be named after the controller method they are used in.
+ * If they are used in more than one controller method or are included by another
+ * template, they should describe the output they generate and be prefixed with
+ * an underscore, eg, **_dataTable.twig**.
+ * 
  * ### Twig
  * 
  * Twig templates must exist in the **templates** folder in a plugin's root
@@ -58,9 +64,9 @@ if (!defined('PIWIK_USER_PATH')) {
  *                  to the filter.
  * - **urlRewriteWithParameters**: Modifies the current query string with the given
  *                                 set of parameters, eg,
- *                                 ```
- *                                 {{ {'module':'MyPlugin', 'action':'index'} | urlRewriteWithParameters }}
- *                                 ```
+ *                                 
+ *                                     {{ {'module':'MyPlugin', 'action':'index'} | urlRewriteWithParameters }}
+ *                                 
  * - **sumTime**: Pretty formats an number of seconds.
  * - **money**: Formats a numerical value as a monetary value using the currency
  *              of the supplied site (second arg is site ID).
@@ -85,12 +91,15 @@ if (!defined('PIWIK_USER_PATH')) {
  * 
  * **Basic usage**
  * 
- *     $view = new View("@MyPlugin/myView");
- *     $view->property1 = "a view property";
- *     $view->property2 = "another view property";
- *     echo $view->render();
+ *     // a controller method
+ *     public function myView()
+ *     {
+ *         $view = new View("@MyPlugin/myView");
+ *         $view->property1 = "a view property";
+ *         $view->property2 = "another view property";
+ *         return $view->render();
+ *     }
  * 
- * @package Piwik
  *
  * @api
  */
@@ -103,7 +112,7 @@ class View implements ViewInterface
      * @var Twig_Environment
      */
     private $twig;
-    private $templateVars = array();
+    protected $templateVars = array();
     private $contentType = 'text/html; charset=utf-8';
     private $xFrameOptions = null;
 
@@ -126,6 +135,8 @@ class View implements ViewInterface
 
         $this->piwik_version = Version::VERSION;
         $this->piwikUrl = Common::sanitizeInputValue(Url::getCurrentUrlWithoutFileName());
+        $this->userLogin = Piwik::getCurrentUserLogin();
+        $this->isSuperUser = Access::getInstance()->hasSuperUserAccess(); // TODO: redundancy w/ userIsSuperUser
     }
 
     /**
@@ -141,11 +152,13 @@ class View implements ViewInterface
     /**
      * Returns the variables to bind to the template when rendering.
      *
+     * @param array $override Template variable override values. Mainly useful
+     *                        when including View templates in other templates.
      * @return array
      */
-    public function getTemplateVars()
+    public function getTemplateVars($override = array())
     {
-        return $this->templateVars;
+        return $override + $this->templateVars;
     }
 
     /**
@@ -167,7 +180,7 @@ class View implements ViewInterface
      * @param string $key The variable name.
      * @return mixed The variable value.
      */
-    public function __get($key)
+    public function &__get($key)
     {
         return $this->templateVars[$key];
     }
@@ -180,7 +193,7 @@ class View implements ViewInterface
 
     /**
      * Renders the current view. Also sends the stored 'Content-Type' HTML header.
-     * See [setContentType](#setContentType).
+     * See {@link setContentType()}.
      *
      * @return string Generated template.
      */
@@ -189,8 +202,6 @@ class View implements ViewInterface
         try {
             $this->currentModule = Piwik::getModule();
             $this->currentAction = Piwik::getAction();
-            $userLogin = Piwik::getCurrentUserLogin();
-            $this->userLogin = $userLogin;
 
             $count = SettingsPiwik::getWebsitesCountToDisplay();
 
@@ -202,7 +213,7 @@ class View implements ViewInterface
             $this->url = Common::sanitizeInputValue(Url::getCurrentUrl());
             $this->token_auth = Piwik::getCurrentUserTokenAuth();
             $this->userHasSomeAdminAccess = Piwik::isUserHasSomeAdminAccess();
-            $this->userIsSuperUser = Piwik::isUserIsSuperUser();
+            $this->userIsSuperUser = Piwik::hasUserSuperUserAccess();
             $this->latest_version_available = UpdateCheck::isNewestVersionAvailable();
             $this->disableLink = Common::getRequestVar('disableLink', 0, 'int');
             $this->isWidget = Common::getRequestVar('widget', 0, 'int');
@@ -214,7 +225,7 @@ class View implements ViewInterface
 
             $this->loginModule = Piwik::getLoginPluginName();
 
-            $user = APIUsersManager::getInstance()->getUser($userLogin);
+            $user = APIUsersManager::getInstance()->getUser($this->userLogin);
             $this->userAlias = $user['alias'];
         } catch (Exception $e) {
             // can fail, for example at installation (no plugin loaded yet)
@@ -240,12 +251,15 @@ class View implements ViewInterface
     {
         $output = $this->twig->render($this->template, $this->templateVars);
         $output = $this->applyFilter_cacheBuster($output);
+
+        $helper = new Theme;
+        $output = $helper->rewriteAssetsPathToTheme($output);
         return $output;
     }
 
     protected function applyFilter_cacheBuster($output)
     {
-        $cacheBuster = AssetManager::generateAssetsCacheBuster();
+        $cacheBuster = UIAssetCacheBuster::getInstance()->piwikVersionBasedCacheBuster();
         $tag = 'cb=' . $cacheBuster;
 
         $pattern = array(
@@ -281,8 +295,8 @@ class View implements ViewInterface
      * Set X-Frame-Options field in the HTTP response. The header is set just
      * before rendering.
      * 
-     * Note: setting this allows you to make sure the View **cannot** be
-     * embedded in iframes. Learn more [here](https://developer.mozilla.org/en-US/docs/HTTP/X-Frame-Options).
+     * _Note: setting this allows you to make sure the View **cannot** be
+     * embedded in iframes. Learn more [here](https://developer.mozilla.org/en-US/docs/HTTP/X-Frame-Options)._
      *
      * @param string $option ('deny' or 'sameorigin')
      */
@@ -340,21 +354,21 @@ class View implements ViewInterface
 
     /**
      * Creates a View for and then renders the single report template.
+     * 
+     * Can be used for pages that display only one report to avoid having to create
+     * a new template.
      *
      * @param string $title The report title.
      * @param string $reportHtml The report body HTML.
      * @param bool $fetch If true, return report contents as a string; otherwise echo to screen.
      * @return string|void The report contents if `$fetch` is true.
      */
-    static public function singleReport($title, $reportHtml, $fetch = false)
+    static public function singleReport($title, $reportHtml)
     {
         $view = new View('@CoreHome/_singleReport');
         $view->title = $title;
         $view->report = $reportHtml;
 
-        if ($fetch) {
-            return $view->render();
-        }
-        echo $view->render();
+        return $view->render();
     }
 }

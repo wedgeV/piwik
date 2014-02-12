@@ -5,8 +5,6 @@
  * @link http://piwik.org
  * @license http://www.gnu.org/licenses/gpl-3.0.html GPL v3 or later
  *
- * @category Piwik_Plugins
- * @package CoreConsole
  */
 
 namespace Piwik\Plugins\LanguagesManager\Commands;
@@ -18,7 +16,6 @@ use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 
 /**
- * @package CoreConsole
  */
 class FetchFromOTrance extends ConsoleCommand
 {
@@ -164,6 +161,12 @@ class FetchFromOTrance extends ConsoleCommand
 
     public static function getDownloadPath() {
 
-        return PIWIK_DOCUMENT_ROOT . DIRECTORY_SEPARATOR . self::DOWNLOADPATH;
+        $path = PIWIK_DOCUMENT_ROOT . DIRECTORY_SEPARATOR . self::DOWNLOADPATH;
+
+        if (!is_dir($path)) {
+            mkdir($path);
+        }
+
+        return $path;
     }
 }

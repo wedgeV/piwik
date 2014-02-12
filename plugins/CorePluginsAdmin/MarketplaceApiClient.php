@@ -5,8 +5,6 @@
  * @link http://piwik.org
  * @license http://www.gnu.org/licenses/gpl-3.0.html GPL v3 or later
  *
- * @category Piwik_Plugins
- * @package CorePluginsAdmin
  */
 namespace Piwik\Plugins\CorePluginsAdmin;
 
@@ -16,7 +14,6 @@ use Piwik\Version;
 
 /**
  *
- * @package CorePluginsAdmin
  */
 class MarketplaceApiClient
 {
@@ -76,6 +73,10 @@ class MarketplaceApiClient
             }
         }
 
+        if (empty($params)) {
+            return array();
+        }
+
         $params = array('plugins' => $params);
 
         $hasUpdates = $this->fetch('plugins/checkUpdates', array('plugins' => json_encode($params)));
@@ -100,6 +101,7 @@ class MarketplaceApiClient
 
         foreach ($hasUpdates as $pluginHavingUpdate) {
             $plugin = $this->getPluginInfo($pluginHavingUpdate['name']);
+            $plugin['repositoryChangelogUrl'] = $pluginHavingUpdate['repositoryChangelogUrl'];
 
             if (!empty($plugin['isTheme']) == $themesOnly) {
                 $pluginDetails[] = $plugin;

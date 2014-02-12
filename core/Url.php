@@ -5,8 +5,6 @@
  * @link http://piwik.org
  * @license http://www.gnu.org/licenses/gpl-3.0.html GPL v3 or later
  *
- * @category Piwik
- * @package Piwik
  */
 namespace Piwik;
 
@@ -24,25 +22,30 @@ use Exception;
  * 
  * **Redirect to a different controller action**
  * 
- *     $url = Url::getCurrentQueryStringWithParametersModified(array(
- *         'module' => 'UserSettings',
- *         'action' => 'index'
- *     ));
- *     Url::redirectToUrl($url);
+ *     public function myControllerAction()
+ *     {
+ *         $url = Url::getCurrentQueryStringWithParametersModified(array(
+ *             'module' => 'UserSettings',
+ *             'action' => 'index'
+ *         ));
+ *         Url::redirectToUrl($url);
+ *     }
  * 
  * **Link to a different controller action in a template**
  * 
- *     $url = Url::getCurrentQueryStringWithParametersModified(array(
- *         'module' => 'UserCountryMap',
- *         'action' => 'realtimeMap',
- *         'changeVisitAlpha' => 0,
- *         'removeOldVisits' => 0
- *     ));
- *     $view = new View("@MyPlugin/myPopup");
- *     $view->realtimeMapUrl = $url;
- *     echo $view->render();
+ *     public function myControllerAction()
+ *     {
+ *         $url = Url::getCurrentQueryStringWithParametersModified(array(
+ *             'module' => 'UserCountryMap',
+ *             'action' => 'realtimeMap',
+ *             'changeVisitAlpha' => 0,
+ *             'removeOldVisits' => 0
+ *         ));
+ *         $view = new View("@MyPlugin/myPopup");
+ *         $view->realtimeMapUrl = $url;
+ *         return $view->render();
+ *     }
  * 
- * @package Piwik
  */
 class Url
 {
@@ -69,7 +72,7 @@ class Url
      * Returns the current URL without the query string.
      * 
      * @param bool $checkTrustedHost Whether to do trusted host check. Should ALWAYS be true,
-     *                               except in Controller.
+     *                               except in {@link Piwik\Plugin\Controller}.
      * @return string eg, `"http://example.org/dir1/dir2/index.php"` if the current URL is
      *                `"http://example.org/dir1/dir2/index.php?param1=value1&param2=value2"`.
      * @api
@@ -192,11 +195,12 @@ class Url
     }
 
     /**
-     * Validates the "Host" header (untrusted user input).
+     * Validates the **Host** HTTP header (untrusted user input). Used to prevent Host header
+     * attacks.
      *
-     * @param string|bool $host Contents of Host: header from Request. If false, gets the
+     * @param string|bool $host Contents of Host: header from the HTTP request. If `false`, gets the
      *                          value from the request.
-     * @return bool True if valid; false otherwise.
+     * @return bool `true` if valid; `false` otherwise.
      */
     static public function isValidHost($host = false)
     {
@@ -219,7 +223,8 @@ class Url
             return true;
         }
 
-        $trustedHosts = @Config::getInstance()->General['trusted_hosts'];
+        $trustedHosts = self::getTrustedHosts();
+
         // if no trusted hosts, just assume it's valid
         if (empty($trustedHosts)) {
             self::saveTrustedHostnameInConfig($host);
@@ -232,19 +237,23 @@ class Url
             return false;
         }
 
+
         foreach ($trustedHosts as &$trustedHost) {
             $trustedHost = preg_quote($trustedHost);
         }
         $untrustedHost = Common::mb_strtolower($host);
         $untrustedHost = rtrim($untrustedHost, '.');
+
+
         $hostRegex = Common::mb_strtolower('/(^|.)' . implode('|', $trustedHosts) . '$/');
+
         $result = preg_match($hostRegex, $untrustedHost);
         return 0 !== $result;
     }
 
     /**
      * Records one host, or an array of hosts in the config file,
-     * if user is super user
+     * if user is Super User
      *
      * @static
      * @param $host string|array
@@ -252,7 +261,7 @@ class Url
      */
     public static function saveTrustedHostnameInConfig($host)
     {
-        if (Piwik::isUserIsSuperUser()
+        if (Piwik::hasUserSuperUserAccess()
             && file_exists(Config::getLocalConfigPath())
         ) {
             $general = Config::getInstance()->General;
@@ -360,12 +369,11 @@ class Url
      *
      * @return array If current URL is `"http://example.org/dir1/dir2/index.php?param1=value1&param2=value2"`
      *               this will return:
-     *               ```
-     *               array(
-     *                   'param1' => string 'value1',
-     *                   'param2' => string 'value2'
-     *               )
-     *               ```
+     *               
+     *                   array(
+     *                       'param1' => string 'value1',
+     *                       'param2' => string 'value2'
+     *                   )
      * @api
      */
     static public function getArrayFromCurrentQueryString()
@@ -400,7 +408,7 @@ class Url
     }
 
     /**
-     * Converts an an array of parameters name => value mappings to a query
+     * Converts an array of parameters name => value mappings to a query
      * string.
      * 
      * @param array $parameters eg. `array('param1' => 10, 'param2' => array(1,2))`
@@ -423,6 +431,35 @@ class Url
             }
         }
         $query = substr($query, 0, -1);
+        return $query;
+    }
+
+    /**
+     * Returns the query part from any valid url and adds additional parameters to the query part if needed.
+     *
+     * @param string $aUrl    Any url eg `"http://example.com/piwik/?foo=bar"`
+     * @param array $additionalParamsToAdd    If not empty the given parameters will be added to the query.
+     *
+     * @return string eg. `"foo=bar&foo2=bar2"`
+     * @api
+     */
+    static public function getQueryFromUrl($aUrl, array $additionalParamsToAdd)
+    {
+        $url   = @parse_url($aUrl);
+        $query = '';
+
+        if (!empty($url['query'])) {
+            $query .= $url['query'];
+        }
+
+        if (!empty($additionalParamsToAdd)) {
+            if (!empty($query)) {
+                $query .= '&';
+            }
+
+            $query .= self::getQueryStringFromParameters($additionalParamsToAdd);
+        }
+
         return $query;
     }
 
@@ -460,7 +497,20 @@ class Url
     }
 
     /**
-     * Returns the HTTP_REFERER header, or false if not found.
+     * If the page is using HTTP, redirect to the same page over HTTPS
+     */
+    static public function redirectToHttps()
+    {
+        if(ProxyHttp::isHttps()) {
+            return;
+        }
+        $url = self::getCurrentUrl();
+        $url = str_replace("http://", "https://", $url);
+        self::redirectToUrl($url);
+    }
+
+    /**
+     * Returns the **HTTP_REFERER** `$_SERVER` variable, or `false` if not found.
      *
      * @return string|false
      * @api
@@ -474,7 +524,7 @@ class Url
     }
 
     /**
-     * Returns true if the URL points to something on the same host, false if otherwise.
+     * Returns `true` if the URL points to something on the same host, `false` if otherwise.
      *
      * @param string $url
      * @return bool True if local; false otherwise.
@@ -502,8 +552,30 @@ class Url
         $parsedUrl = @parse_url($url);
         $host = IP::sanitizeIp(@$parsedUrl['host']);
         return !empty($host)
-        && ($disableHostCheck || in_array($host, $hosts))
-        && !empty($parsedUrl['scheme'])
-        && in_array($parsedUrl['scheme'], array('http', 'https'));
+            && ($disableHostCheck || in_array($host, $hosts))
+            && !empty($parsedUrl['scheme'])
+            && in_array($parsedUrl['scheme'], array('http', 'https'));
+    }
+
+    public static function getTrustedHosts( $filterEnrich = true )
+    {
+        $trustedHosts = @Config::getInstance()->General['trusted_hosts'];
+
+        if (empty($trustedHosts)) {
+            return array();
+        }
+        foreach ($trustedHosts as &$trustedHost) {
+            // Case user wrote in the config, http://example.com/test instead of example.com
+            if (UrlHelper::isLookLikeUrl($trustedHost)) {
+                $trustedHost = parse_url($trustedHost, PHP_URL_HOST);
+            }
+        }
+
+        if($filterEnrich) {
+            /* used by Piwik PRO */
+            Piwik::postEvent('Url.filterTrustedHosts', array(&$trustedHosts));
+        }
+
+        return $trustedHosts;
     }
 }

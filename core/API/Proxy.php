@@ -5,8 +5,6 @@
  * @link http://piwik.org
  * @license http://www.gnu.org/licenses/gpl-3.0.html GPL v3 or later
  *
- * @category Piwik
- * @package Piwik
  */
 
 namespace Piwik\API;
@@ -26,8 +24,6 @@ use ReflectionMethod;
  *
  * It will also log the performance of API calls (time spent, parameter values, etc.) if logger available
  *
- * @package Piwik
- * @subpackage Piwik_API
  * @static \Piwik\API\Proxy getInstance()
  */
 class Proxy extends Singleton
@@ -108,6 +104,7 @@ class Proxy extends Singleton
             $doc = "<div class='apiFirstLine'>" . substr($doc, 0, $firstLineBreak) . "</div>" . substr($doc, $firstLineBreak + strlen("<br>"));
         }
         $doc = preg_replace("/(@package)[a-z _A-Z]*/", "", $doc);
+        $doc = preg_replace("/(@method).*/", "", $doc);
         $doc = str_replace(array("\t", "\n", "/**", "*/", " * ", " *", "  ", "\t*", "  *  @package"), " ", $doc);
         $this->metadataArray[$className]['__documentation'] = $doc;
     }
@@ -168,27 +165,40 @@ class Proxy extends Singleton
             /**
              * Triggered before an API request is dispatched.
              * 
-             * This event can be used to modify the input that is passed to every API method or just
-             * one.
+             * This event can be used to modify the arguments passed to one or more API methods.
+             * 
+             * **Example**
+             * 
+             *     Piwik::addAction('API.Request.dispatch', function (&$parameters, $pluginName, $methodName) {
+             *         if ($pluginName == 'Actions') {
+             *             if ($methodName == 'getPageUrls') {
+             *                 // ... do something ...
+             *             } else {
+             *                 // ... do something else ...
+             *             }
+             *         }
+             *     });
              * 
              * @param array &$finalParameters List of parameters that will be passed to the API method.
-             * @param string $pluginName The name of the plugin being dispatched to.
+             * @param string $pluginName The name of the plugin the API method belongs to.
              * @param string $methodName The name of the API method that will be called.
              */
             Piwik::postEvent('API.Request.dispatch', array(&$finalParameters, $pluginName, $methodName));
 
             /**
-             * This event exists for convenience and is triggered directly after the [API.Request.dispatch](#)
-             * event is triggered.
+             * Triggered before an API request is dispatched.
              * 
-             * It can be used to modify the input that is passed to a single API method. This is also
-             * possible with the [API.Request.dispatch](#) event, however that event requires event handlers
-             * check if the plugin name and method name are correct before modifying the parameters.
+             * This event exists for convenience and is triggered directly after the {@hook API.Request.dispatch}
+             * event is triggered. It can be used to modify the arguments passed to a **single** API method.
+             * 
+             * _Note: This is can be accomplished with the {@hook API.Request.dispatch} event as well, however
+             * event handlers for that event will have to do more work._
              * 
              * **Example**
              * 
              *     Piwik::addAction('API.Actions.getPageUrls', function (&$parameters) {
-             *         // ...
+             *         // force use of a single website. for some reason.
+             *         $parameters['idSite'] = 1;
              *     });
              * 
              * @param array &$finalParameters List of parameters that will be passed to the API method.
@@ -207,21 +217,36 @@ class Proxy extends Singleton
             );
 
             /**
-             * This event exists for convenience and is triggered immediately before the
-             * [API.Request.dispatch.end](#) event.
+             * Triggered directly after an API request is dispatched.
              * 
-             * It can be used to modify the output of a single API method. This is also possible with
-             * the [API.Request.dispatch.end](#) event, however that event requires event handlers
-             * check if the plugin name and method name are correct before modifying the output.
+             * This event exists for convenience and is triggered immediately before the
+             * {@hook API.Request.dispatch.end} event. It can be used to modify the output of a **single**
+             * API method.
+             * 
+             * _Note: This can be accomplished with the {@hook API.Request.dispatch.end} event as well,
+             * however event handlers for that event will have to do more work._
              *
-             * @param mixed &$returnedValue The value returned from the API method. This will not be
-             *                              a rendered string, but an actual object. For example, it
-             *                              could be a [DataTable](#).
+             * **Example**
+             * 
+             *     // append (0 hits) to the end of row labels whose row has 0 hits
+             *     Piwik::addAction('API.Actions.getPageUrls', function (&$returnValue, $info)) {
+             *         $returnValue->filter('ColumnCallbackReplace', 'label', function ($label, $hits) {
+             *             if ($hits === 0) {
+             *                 return $label . " (0 hits)";
+             *             } else {
+             *                 return $label;
+             *             }
+             *         }, null, array('nb_hits'));
+             *     }
+             * 
+             * @param mixed &$returnedValue The API method's return value. Can be an object, such as a
+             *                              {@link Piwik\DataTable DataTable} instance.
+             *                              could be a {@link Piwik\DataTable DataTable}.
              * @param array $extraInfo An array holding information regarding the API request. Will
              *                         contain the following data:
              * 
-             *                         - **className**: The name of the namespace-d class name of the
-             *                                          API instance that's being called.
+             *                         - **className**: The namespace-d class name of the API instance
+             *                                          that's being called.
              *                         - **module**: The name of the plugin the API request was
              *                                       dispatched to.
              *                         - **action**: The name of the API method that was executed.
@@ -235,21 +260,40 @@ class Proxy extends Singleton
              * 
              * This event can be used to modify the output of any API method.
              * 
-             * @param mixed &$returnedValue The value returned from the API method. This will not be
-             *                              a rendered string, but an actual object. For example, it
-             *                              could be a [DataTable](#).
+             * **Example**
+             * 
+             *     // append (0 hits) to the end of row labels whose row has 0 hits for any report that has the 'nb_hits' metric
+             *     Piwik::addAction('API.Actions.getPageUrls', function (&$returnValue, $info)) {
+             *         // don't process non-DataTable reports and reports that don't have the nb_hits column
+             *         if (!($returnValue instanceof DataTableInterface)
+             *             || in_array('nb_hits', $returnValue->getColumns())
+             *         ) {
+             *             return;
+             *         }
+             * 
+             *         $returnValue->filter('ColumnCallbackReplace', 'label', function ($label, $hits) {
+             *             if ($hits === 0) {
+             *                 return $label . " (0 hits)";
+             *             } else {
+             *                 return $label;
+             *             }
+             *         }, null, array('nb_hits'));
+             *     }
+             * 
+             * @param mixed &$returnedValue The API method's return value. Can be an object, such as a
+             *                              {@link Piwik\DataTable DataTable} instance.
              * @param array $extraInfo An array holding information regarding the API request. Will
              *                         contain the following data:
              * 
-             *                         - **className**: The name of the namespace-d class name of the
-             *                                          API instance that's being called.
+             *                         - **className**: The namespace-d class name of the API instance
+             *                                          that's being called.
              *                         - **module**: The name of the plugin the API request was
              *                                       dispatched to.
              *                         - **action**: The name of the API method that was executed.
              *                         - **parameters**: The array of parameters passed to the API
              *                                           method.
              */
-            Piwik::postEvent(sprintf('API.Request.dispatch.end', $pluginName, $methodName), $endHookParams);
+            Piwik::postEvent('API.Request.dispatch.end', $endHookParams);
 
             // Restore the request
             $_GET = $saveGET;
@@ -280,7 +324,7 @@ class Proxy extends Singleton
     }
 
     /**
-     * Returns the 'moduleName' part of 'Piwik_moduleName_API' classname
+     * Returns the 'moduleName' part of '\\Piwik\\Plugins\\moduleName\\API'
      *
      * @param string $className "API"
      * @return string "Referrers"
@@ -464,8 +508,6 @@ class Proxy extends Singleton
 /**
  * To differentiate between "no value" and default value of null
  *
- * @package Piwik
- * @subpackage Piwik_API
  */
 class NoDefaultValue
 {

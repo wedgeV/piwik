@@ -5,18 +5,16 @@
  * @link http://piwik.org
  * @license http://www.gnu.org/licenses/gpl-3.0.html GPL v3 or later
  *
- * @category Piwik
- * @package Piwik
  */
 namespace Piwik\DataTable\Filter;
 
 use Piwik\DataTable;
 
 /**
- * A DataTable filter that replaces range labels whose values are in seconds with
+ * A {@link DataTable} filter that replaces range labels whose values are in seconds with
  * prettier, human-friendlier versions.
  *
- * This filter customizes the behavior of the [BeautifyRangeLabels](#) filter
+ * This filter customizes the behavior of the {@link BeautifyRangeLabels} filter
  * so range values that are less than one minute are displayed in seconds but
  * other ranges are displayed in minutes.
  * 
@@ -24,8 +22,6 @@ use Piwik\DataTable;
  * 
  *     $dataTable->filter('BeautifyTimeRangeLabels', array("%1$s-%2$s min", "1 min", "%s min"));
  * 
- * @package Piwik
- * @subpackage DataTable
  * @api
  */
 class BeautifyTimeRangeLabels extends BeautifyRangeLabels

@@ -5,8 +5,6 @@
  * @link http://piwik.org
  * @license http://www.gnu.org/licenses/gpl-3.0.html GPL v3 or later
  *
- * @category Piwik_Plugins
- * @package ImageGraph
  */
 namespace Piwik\Plugins\ImageGraph;
 
@@ -40,13 +38,13 @@ class Controller extends \Piwik\Plugin\Controller
         }
         $view = new View('@ImageGraph/index');
         $view->titleAndUrls = $plot;
-        echo $view->render();
+        return $view->render();
     }
 
     // Draw graphs for all sizes (DEBUG)
     public function testAllSizes()
     {
-        Piwik::checkUserIsSuperUser();
+        Piwik::checkUserHasSuperUserAccess();
 
         $view = new View('@ImageGraph/testAllSizes');
         $this->setGeneralVariablesView($view);
@@ -73,6 +71,6 @@ class Controller extends \Piwik\Plugin\Controller
             array(800, 150), // landscape mode
             array(600, 300, $fontSize = 18, 300, 150), // iphone requires bigger font, then it will be scaled down by ios
         );
-        echo $view->render();
+        return $view->render();
     }
 }

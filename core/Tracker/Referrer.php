@@ -5,8 +5,6 @@
  * @link http://piwik.org
  * @license http://www.gnu.org/licenses/gpl-3.0.html GPL v3 or later
  *
- * @category Piwik
- * @package Piwik
  */
 namespace Piwik\Tracker;
 
@@ -15,8 +13,6 @@ use Piwik\Piwik;
 use Piwik\UrlHelper;
 
 /**
- * @package Piwik
- * @subpackage Tracker
  */
 class Referrer
 {
@@ -103,7 +99,7 @@ class Referrer
             && !$referrerDetected
         ) {
             $this->typeReferrerAnalyzed = Common::REFERRER_TYPE_WEBSITE;
-            $this->nameReferrerAnalyzed = mb_strtolower($this->referrerHost, 'UTF-8');
+            $this->nameReferrerAnalyzed = Common::mb_strtolower($this->referrerHost);
         }
 
         $referrerInformation = array(
@@ -135,10 +131,10 @@ class Referrer
          *                                        - **name**: The search engine name.
          *                                        - **keywords**: The search keywords used.
          *  
-         *                                        This parameter will be defaulted to the results
+         *                                        This parameter is initialized to the results
          *                                        of Piwik's default search engine detection
          *                                        logic.
-         * @param string referrerUrl The referrer URL.
+         * @param string referrerUrl The referrer URL from the tracking request.
          */
         Piwik::postEvent('Tracker.detectReferrerSearchEngine', array(&$searchEngineInformation, $this->referrerUrl));
         if ($searchEngineInformation === false) {

@@ -5,8 +5,6 @@
  * @link http://piwik.org
  * @license http://www.gnu.org/licenses/gpl-3.0.html GPL v3 or later
  *
- * @category Piwik_Plugins
- * @package ExampleUI
  */
 namespace Piwik\Plugins\ExampleUI;
 
@@ -14,10 +12,9 @@ use Piwik\Common;
 use Piwik\Notification;
 use Piwik\Piwik;
 use Piwik\View;
-use Piwik\ViewDataTable\Factory;
+use Piwik\ViewDataTable\Factory as ViewDataTableFactory;
 
 /**
- * @package ExampleUI
  */
 class Controller extends \Piwik\Plugin\Controller
 {
@@ -26,7 +23,7 @@ class Controller extends \Piwik\Plugin\Controller
         $controllerAction = $this->pluginName . '.' . __FUNCTION__;
         $apiAction = 'ExampleUI.getTemperatures';
 
-        $view = Factory::build('table', $apiAction, $controllerAction);
+        $view = ViewDataTableFactory::build('table', $apiAction, $controllerAction);
 
         $view->config->translations['value'] = 'Temperature in °C';
         $view->config->translations['label'] = 'Hour of day';
@@ -41,7 +38,7 @@ class Controller extends \Piwik\Plugin\Controller
         $view->config->max_graph_elements = 24;
         $view->config->metrics_documentation = array('value' => 'Documentation for temperature metric');
 
-        echo $view->render();
+        return $view->render();
     }
 
     public function evolutionGraph()
@@ -49,9 +46,9 @@ class Controller extends \Piwik\Plugin\Controller
         $view = new View('@ExampleUI/evolutiongraph');
 
         $this->setPeriodVariablesView($view);
-        $view->evolutionGraph = $this->getEvolutionGraph(true, array('server1', 'server2'));
+        $view->evolutionGraph = $this->getEvolutionGraph(array('server1', 'server2'));
 
-        echo $view->render();
+        return $view->render();
     }
 
     public function notifications()
@@ -78,10 +75,10 @@ class Controller extends \Piwik\Plugin\Controller
 
         $view = new View('@ExampleUI/notifications');
         $this->setGeneralVariablesView($view);
-        echo $view->render();
+        return $view->render();
     }
 
-    public function getEvolutionGraph($fetch = false, array $columns = array())
+    public function getEvolutionGraph(array $columns = array())
     {
         if (empty($columns)) {
             $columns = Common::getRequestVar('columns');
@@ -92,12 +89,12 @@ class Controller extends \Piwik\Plugin\Controller
             $selectableColumns = array('server1', 'server2'), 'My documentation', 'ExampleUI.getTemperaturesEvolution');
         $view->requestConfig->filter_sort_column = 'label';
 
-        return $this->renderView($view, $fetch);
+        return $this->renderView($view);
     }
 
     public function barGraph()
     {
-        $view = Factory::build(
+        $view = ViewDataTableFactory::build(
             'graphVerticalBar', 'ExampleUI.getTemperatures', $controllerAction = 'ExampleUI.barGraph');
 
         $view->config->y_axis_unit = '°C';
@@ -106,12 +103,12 @@ class Controller extends \Piwik\Plugin\Controller
         $view->config->selectable_columns = array("value");
         $view->config->max_graph_elements = 24;
 
-        echo $view->render();
+        return $view->render();
     }
 
     public function pieGraph()
     {
-        $view = Factory::build(
+        $view = ViewDataTableFactory::build(
             'graphPie', 'ExampleUI.getPlanetRatios', $controllerAction = 'ExampleUI.pieGraph');
 
         $view->config->columns_to_display = array('value');
@@ -120,44 +117,46 @@ class Controller extends \Piwik\Plugin\Controller
         $view->config->selectable_columns = array("value");
         $view->config->max_graph_elements = 10;
 
-        echo $view->render();
+        return $view->render();
     }
 
     public function tagClouds()
     {
-        echo "<h2>Simple tag cloud</h2>";
-        $this->echoSimpleTagClouds();
+        $output  = "<h2>Simple tag cloud</h2>";
+        $output .= $this->echoSimpleTagClouds();
 
-        echo "<br /><br /><h2>Advanced tag cloud: with logos and links</h2>
+        $output .= "<br /><br /><h2>Advanced tag cloud: with logos and links</h2>
 		<ul style='list-style-type:disc;margin-left:50px'>
 			<li>The logo size is proportional to the value returned by the API</li>
 			<li>The logo is linked to a specific URL</li>
 		</ul><br /><br />";
-        $this->echoAdvancedTagClouds();
+        $output .= $this->echoAdvancedTagClouds();
+
+        return $output;
     }
 
     public function echoSimpleTagClouds()
     {
-        $view = Factory::build(
+        $view = ViewDataTableFactory::build(
             'cloud', 'ExampleUI.getPlanetRatios', $controllerAction = 'ExampleUI.echoSimpleTagClouds');
 
         $view->config->columns_to_display = array('label', 'value');
         $view->config->translations['value'] = "times the diameter of Earth";
         $view->config->show_footer = false;
 
-        echo $view->render();
+        return $view->render();
     }
 
     public function echoAdvancedTagClouds()
     {
-        $view = Factory::build(
+        $view = ViewDataTableFactory::build(
             'cloud', 'ExampleUI.getPlanetRatiosWithLogos', $controllerAction = 'ExampleUI.echoAdvancedTagClouds');
 
         $view->config->display_logo_instead_of_label = true;
         $view->config->columns_to_display = array('label', 'value');
         $view->config->translations['value'] = "times the diameter of Earth";
 
-        echo $view->render();
+        return $view->render();
     }
 
     public function sparklines()
@@ -166,12 +165,12 @@ class Controller extends \Piwik\Plugin\Controller
         $view->urlSparkline1 = $this->getUrlSparkline('generateSparkline', array('server' => 'server1', 'rand' => mt_rand()));
         $view->urlSparkline2 = $this->getUrlSparkline('generateSparkline', array('server' => 'server2', 'rand' => mt_rand()));
 
-        echo $view->render();
+        return $view->render();
     }
 
     public function generateSparkline()
     {
-        $view = Factory::build(
+        $view = ViewDataTableFactory::build(
             'sparkline', 'ExampleUI.getTemperaturesEvolution', $controllerAction = 'ExampleUI.generateSparkline');
 
         $serverRequested = Common::getRequestVar('server', false);
@@ -179,6 +178,19 @@ class Controller extends \Piwik\Plugin\Controller
             $view->config->columns_to_display = array($serverRequested);
         }
 
-        echo $view->render();
+        return $view->render();
+    }
+
+    public function treemap()
+    {
+        $view = ViewDataTableFactory::build(
+            'infoviz-treemap', 'ExampleUI.getTemperatures', $controllerAction = 'ExampleUI.treemap');
+
+        $view->config->translations['value'] = "Temperature";
+        $view->config->columns_to_display = array("label", "value");
+        $view->config->selectable_columns = array("value");
+        $view->config->show_evolution_values = 0;
+
+        return $view->render();
     }
 }

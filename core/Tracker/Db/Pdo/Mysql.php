@@ -5,8 +5,6 @@
  * @link http://piwik.org
  * @license http://www.gnu.org/licenses/gpl-3.0.html GPL v3 or later
  *
- * @category Piwik
- * @package Piwik
  */
 namespace Piwik\Tracker\Db\Pdo;
 
@@ -20,8 +18,6 @@ use Piwik\Tracker\Db\DbException;
 /**
  * PDO MySQL wrapper
  *
- * @package Piwik
- * @subpackage Tracker
  */
 class Mysql extends Db
 {
@@ -44,7 +40,7 @@ class Mysql extends Db
     {
         if (isset($dbInfo['unix_socket']) && $dbInfo['unix_socket'][0] == '/') {
             $this->dsn = $driverName . ':dbname=' . $dbInfo['dbname'] . ';unix_socket=' . $dbInfo['unix_socket'];
-        } else if ($dbInfo['port'][0] == '/') {
+        } else if (!empty($dbInfo['port']) && $dbInfo['port'][0] == '/') {
             $this->dsn = $driverName . ':dbname=' . $dbInfo['dbname'] . ';unix_socket=' . $dbInfo['port'];
         } else {
             $this->dsn = $driverName . ':dbname=' . $dbInfo['dbname'] . ';host=' . $dbInfo['host'] . ';port=' . $dbInfo['port'];
@@ -117,6 +113,28 @@ class Mysql extends Db
                 return false;
             }
             return $sth->fetchAll(PDO::FETCH_ASSOC);
+        } catch (PDOException $e) {
+            throw new DbException("Error query: " . $e->getMessage());
+        }
+    }
+
+    /**
+     * Fetches the first column of all SQL result rows as an array.
+     *
+     * @param string $sql An SQL SELECT statement.
+     * @param mixed $bind Data to bind into SELECT placeholders.
+     * @throws \Piwik\Tracker\Db\DbException
+     * @return string
+     */
+    public function fetchCol($sql, $bind = array())
+    {
+        try {
+            $sth = $this->query($sql, $bind);
+            if ($sth === false) {
+                return false;
+            }
+            $result = $sth->fetchAll(PDO::FETCH_COLUMN, 0);
+            return $result;
         } catch (PDOException $e) {
             throw new DbException("Error query: " . $e->getMessage());
         }

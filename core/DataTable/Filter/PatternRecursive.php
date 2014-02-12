@@ -5,30 +5,26 @@
  * @link http://piwik.org
  * @license http://www.gnu.org/licenses/gpl-3.0.html GPL v3 or later
  *
- * @category Piwik
- * @package Piwik
  */
 namespace Piwik\DataTable\Filter;
 
 use Exception;
-use Piwik\DataTable\Filter;
+use Piwik\DataTable\BaseFilter;
 use Piwik\DataTable;
 use Piwik\DataTable\Manager;
 
 /**
- * Deletes rows for which a specific column in both the row and all subtables that
- * descend from the row do not match a supplied regex pattern.
+ * Deletes rows that do not contain a column that matches a regex pattern and do not contain a
+ * subtable that contains a column that matches a regex pattern.
  * 
  * **Example**
  * 
  *     // only display index pageviews in Actions.getPageUrls
  *     $dataTable->filter('PatternRecursive', array('label', 'index'));
  *
- * @package Piwik
- * @subpackage DataTable
  * @api
  */
-class PatternRecursive extends Filter
+class PatternRecursive extends BaseFilter
 {
     private $columnToFilter;
     private $patternToSearch;
@@ -51,7 +47,7 @@ class PatternRecursive extends Filter
     }
 
     /**
-     * See [PatternRecursive](#).
+     * See {@link PatternRecursive}.
      * 
      * @param DataTable $table
      * @return int The number of deleted rows.
@@ -81,7 +77,7 @@ class PatternRecursive extends Filter
             }
 
             if ($patternNotFoundInChildren
-                && !Pattern::match($this->patternToSearch, $this->patternToSearchQuoted, $row->getColumn($this->columnToFilter), $invertedMatch = false)
+                && !Pattern::match($this->patternToSearchQuoted, $row->getColumn($this->columnToFilter), $invertedMatch = false)
             ) {
                 $table->deleteRow($key);
             }

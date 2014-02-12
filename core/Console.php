@@ -5,8 +5,6 @@
  * @link http://piwik.org
  * @license http://www.gnu.org/licenses/gpl-3.0.html GPL v3 or later
  *
- * @category Piwik
- * @package Piwik
  */
 namespace Piwik;
 
@@ -45,21 +43,20 @@ class Console
      */
     private function getAvailableCommands()
     {
-        $commands = array();
+        $commands = array('Piwik\CliMulti\RequestCommand');
 
         /**
-         * Triggered when gathering all available console commands. Plugins that want to expose new console commands
+         * Triggered to gather all available console commands. Plugins that want to expose new console commands
          * should subscribe to this event and add commands to the incoming array.
          *
          * **Example**
-         * ```
-         * public function addConsoleCommands(&$commands)
-         * {
-         *     $commands[] = 'Piwik\Plugins\MyPlugin\Commands\MyCommand';
-         * }
-         * ```
+         * 
+         *     public function addConsoleCommands(&$commands)
+         *     {
+         *         $commands[] = 'Piwik\Plugins\MyPlugin\Commands\MyCommand';
+         *     }
          *
-         * @param array &$commands An array containing a list of command classnames.
+         * @param array &$commands An array containing a list of command class names.
          */
         Piwik::postEvent('Console.addCommands', array(&$commands));
 

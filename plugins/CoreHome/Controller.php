@@ -5,8 +5,6 @@
  * @link http://piwik.org
  * @license http://www.gnu.org/licenses/gpl-3.0.html GPL v3 or later
  *
- * @category Piwik_Plugins
- * @package CoreHome
  */
 namespace Piwik\Plugins\CoreHome;
 
@@ -21,6 +19,7 @@ use Piwik\Piwik;
 use Piwik\Plugins\CoreHome\DataTableRowAction\MultiRowEvolution;
 use Piwik\Plugins\CoreHome\DataTableRowAction\RowEvolution;
 use Piwik\Plugins\CorePluginsAdmin\MarketplaceApiClient;
+use Piwik\Plugins\Dashboard\DashboardManagerControl;
 use Piwik\Plugins\UsersManager\API;
 use Piwik\Site;
 use Piwik\UpdateCheck;
@@ -29,7 +28,6 @@ use Piwik\View;
 
 /**
  *
- * @package CoreHome
  */
 class Controller extends \Piwik\Plugin\Controller
 {
@@ -54,8 +52,7 @@ class Controller extends \Piwik\Plugin\Controller
             $module = Piwik::getLoginPluginName();
         }
         $idSite = Common::getRequestVar('idSite', false, 'int');
-
-        parent::redirectToIndex($module, $action, !empty($idSite) ? $idSite : null);
+        parent::redirectToIndex($module, $action, $idSite);
     }
 
     public function showInContext()
@@ -67,7 +64,7 @@ class Controller extends \Piwik\Plugin\Controller
         }
         $view = $this->getDefaultIndexView();
         $view->content = FrontController::getInstance()->fetchDispatch($controllerName, $actionName);
-        echo $view->render();
+        return $view->render();
     }
 
     public function markNotificationAsRead()
@@ -81,6 +78,7 @@ class Controller extends \Piwik\Plugin\Controller
         $view = new View('@CoreHome/getDefaultIndexView');
         $this->setGeneralVariablesView($view);
         $view->menu = MenuMain::getInstance()->getMenu();
+        $view->dashboardSettingsControl = new DashboardManagerControl();
         $view->content = '';
         return $view;
     }
@@ -113,7 +111,7 @@ class Controller extends \Piwik\Plugin\Controller
     {
         $this->setDateTodayIfWebsiteCreatedToday();
         $view = $this->getDefaultIndexView();
-        echo $view->render();
+        return $view->render();
     }
 
     //  --------------------------------------------------------
@@ -127,7 +125,7 @@ class Controller extends \Piwik\Plugin\Controller
     {
         $rowEvolution = $this->makeRowEvolution($isMulti = false);
         $view = new View('@CoreHome/getRowEvolutionPopover');
-        echo $rowEvolution->renderPopover($this, $view);
+        return $rowEvolution->renderPopover($this, $view);
     }
 
     /** Render the entire row evolution popover for multiple rows */
@@ -135,7 +133,7 @@ class Controller extends \Piwik\Plugin\Controller
     {
         $rowEvolution = $this->makeRowEvolution($isMulti = true);
         $view = new View('@CoreHome/getMultiRowEvolutionPopover');
-        echo $rowEvolution->renderPopover($this, $view);
+        return $rowEvolution->renderPopover($this, $view);
     }
 
     /** Generic method to get an evolution graph or a sparkline for the row evolution popover */
@@ -150,7 +148,7 @@ class Controller extends \Piwik\Plugin\Controller
         }
 
         $view = $rowEvolution->getRowEvolutionGraph();
-        return $this->renderView($view, $fetch);
+        return $this->renderView($view);
     }
 
     /** Utility function. Creates a RowEvolution instance. */
@@ -180,7 +178,7 @@ class Controller extends \Piwik\Plugin\Controller
 
         $view = new View('@CoreHome/checkForUpdates');
         $this->setGeneralVariablesView($view);
-        echo $view->render();
+        return $view->render();
     }
 
     /**
@@ -190,11 +188,11 @@ class Controller extends \Piwik\Plugin\Controller
     {
         $view = new View('@CoreHome/getDonateForm');
         if (Common::getRequestVar('widget', false)
-            && Piwik::isUserIsSuperUser()
+            && Piwik::hasUserSuperUserAccess()
         ) {
-            $view->footerMessage = Piwik::translate('CoreHome_OnlyForAdmin');
+            $view->footerMessage = Piwik::translate('CoreHome_OnlyForSuperUserAccess');
         }
-        echo $view->render();
+        return $view->render();
     }
 
     /**
@@ -206,7 +204,7 @@ class Controller extends \Piwik\Plugin\Controller
         $view->shareText = Piwik::translate('CoreHome_SharePiwikShort');
         $view->shareTextLong = Piwik::translate('CoreHome_SharePiwikLong');
         $view->promoVideoUrl = 'http://www.youtube.com/watch?v=OslfF_EH81g';
-        echo $view->render();
+        return $view->render();
     }
 
     /**

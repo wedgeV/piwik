@@ -5,21 +5,17 @@
  * @link http://piwik.org
  * @license http://www.gnu.org/licenses/gpl-3.0.html GPL v3 or later
  *
- * @category Piwik
- * @package Piwik
  */
 namespace Piwik\DataTable\Filter;
 
 use Piwik\DataTable;
-use Piwik\DataTable\Filter;
+use Piwik\DataTable\BaseFilter;
 
 /**
  * Check range
  *
- * @package Piwik
- * @subpackage DataTable
  */
-class RangeCheck extends Filter
+class RangeCheck extends BaseFilter
 {
     static public $minimumValue = 0.00;
     static public $maximumValue = 100.0;

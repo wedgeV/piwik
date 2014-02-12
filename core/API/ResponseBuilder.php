@@ -5,14 +5,13 @@
  * @link http://piwik.org
  * @license http://www.gnu.org/licenses/gpl-3.0.html GPL v3 or later
  *
- * @category Piwik
- * @package Piwik
  */
 namespace Piwik\API;
 
 use Exception;
 use Piwik\API\DataTableManipulator\Flattener;
 use Piwik\API\DataTableManipulator\LabelFilter;
+use Piwik\API\DataTableManipulator\ReportTotalsCalculator;
 use Piwik\Common;
 use Piwik\DataTable\Renderer\Json;
 use Piwik\DataTable\Renderer;
@@ -20,8 +19,6 @@ use Piwik\DataTable\Simple;
 use Piwik\DataTable;
 
 /**
- * @package Piwik
- * @subpackage Piwik_API
  */
 class ResponseBuilder
 {
@@ -154,7 +151,7 @@ class ResponseBuilder
         // If we are in tests, show full backtrace
         if (defined('PIWIK_PATH_TEST_TO_ROOT')) {
             if (self::DISPLAY_BACKTRACE_DEBUG
-                || Piwik_ShouldPrintBackTraceWithMessage()
+                || \Piwik_ShouldPrintBackTraceWithMessage()
             ) {
                 $message = $e->getMessage() . " in \n " . $e->getFile() . ":" . $e->getLine() . " \n " . $e->getTraceAsString();
             } else {
@@ -297,6 +294,11 @@ class ResponseBuilder
                 $flattener->includeAggregateRows();
             }
             $datatable = $flattener->flatten($datatable);
+        }
+
+        if (1 == Common::getRequestVar('totals', '1', 'integer', $this->request)) {
+            $genericFilter = new ReportTotalsCalculator($this->apiModule, $this->apiMethod, $this->request);
+            $datatable     = $genericFilter->calculate($datatable);
         }
 
         // if the flag disable_generic_filters is defined we skip the generic filters

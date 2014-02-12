@@ -5,8 +5,6 @@
  * @link http://piwik.org
  * @license http://www.gnu.org/licenses/gpl-3.0.html GPL v3 or later
  *
- * @category Piwik_Plugins
- * @package Live
  */
 namespace Piwik\Plugins\Live;
 
@@ -21,18 +19,17 @@ use Piwik\View;
 use Piwik\ViewDataTable\Factory;
 
 /**
- * @package Live
  */
 class Controller extends \Piwik\Plugin\Controller
 {
     const SIMPLE_VISIT_COUNT_WIDGET_LAST_MINUTES_CONFIG_KEY = 'live_widget_visitor_count_last_minutes';
 
-    function index($fetch = false)
+    function index()
     {
-        return $this->widget($fetch);
+        return $this->widget();
     }
 
-    public function widget($fetch = false)
+    public function widget()
     {
         $view = new View('@Live/index');
         $view->idSite = $this->idSite;
@@ -40,10 +37,10 @@ class Controller extends \Piwik\Plugin\Controller
         $view->liveRefreshAfterMs = (int)Config::getInstance()->General['live_widget_refresh_after_seconds'] * 1000;
         $view->visitors = $this->getLastVisitsStart($fetchPlease = true);
         $view->liveTokenAuth = Piwik::getCurrentUserTokenAuth();
-        return $this->render($view, $fetch);
+        return $this->render($view);
     }
 
-    public function getSimpleLastVisitCount($fetch = false)
+    public function getSimpleLastVisitCount()
     {
         $lastMinutes = Config::getInstance()->General[self::SIMPLE_VISIT_COUNT_WIDGET_LAST_MINUTES_CONFIG_KEY];
 
@@ -65,60 +62,57 @@ class Controller extends \Piwik\Plugin\Controller
             'one_minute'  => Piwik::translate('General_OneMinute'),
             'minutes'     => Piwik::translate('General_NMinutes')
         );
-        return $this->render($view, $fetch);
+        return $this->render($view);
     }
 
-    public function ajaxTotalVisitors($fetch = false)
+    public function ajaxTotalVisitors()
     {
         $view = new View('@Live/ajaxTotalVisitors');
         $view = $this->setCounters($view);
         $view->idSite = $this->idSite;
-        return $this->render($view, $fetch);
+        return $this->render($view);
     }
 
-    private function render(View $view, $fetch)
+    private function render(View $view)
     {
         $rendered = $view->render();
-        if ($fetch) {
-            return $rendered;
-        }
-        echo $rendered;
+
+        return $rendered;
     }
 
     public function indexVisitorLog()
     {
         $view = new View('@Live/indexVisitorLog.twig');
         $view->filterEcommerce = Common::getRequestVar('filterEcommerce', 0, 'int');
-        $view->visitorLog = $this->getLastVisitsDetails($fetch = true);
-        echo $view->render();
+        $view->visitorLog = $this->getLastVisitsDetails();
+        return $view->render();
     }
 
-    public function getLastVisitsDetails($fetch = false)
+    public function getLastVisitsDetails()
     {
-        return Factory::renderReport($this->pluginName, __FUNCTION__, $fetch);
+        return $this->renderReport(__FUNCTION__);
     }
 
     /**
-     * @deprecated
+     * Widget
      */
-    public function getVisitorLog($fetch = false)
+    public function getVisitorLog()
     {
-        return $this->getLastVisitsDetails($fetch);
+        return $this->getLastVisitsDetails();
     }
 
-    public function getLastVisitsStart($fetch = false)
+    public function getLastVisitsStart()
     {
         // hack, ensure we load today's visits by default
         $_GET['date'] = 'today';
         $_GET['period'] = 'day';
         $view = new View('@Live/getLastVisitsStart');
         $view->idSite = $this->idSite;
-
         $api = new Request("method=Live.getLastVisitsDetails&idSite={$this->idSite}&filter_limit=10&format=php&serialize=0&disable_generic_filters=1");
         $visitors = $api->process();
         $view->visitors = $visitors;
 
-        return $this->render($view, $fetch);
+        return $this->render($view);
     }
 
     private function setCounters($view)
@@ -157,7 +151,7 @@ class Controller extends \Piwik\Plugin\Controller
 
         $this->setWidgetizedVisitorProfileUrl($view);
 
-        echo $view->render();
+        return $view->render();
     }
 
     public function getSingleVisitSummary()
@@ -173,15 +167,16 @@ class Controller extends \Piwik\Plugin\Controller
         $view->showLocation = true;
         $this->setWidgetizedVisitorProfileUrl($view);
         $view->exportLink = $this->getVisitorProfileExportLink();
-        echo $view->render();
+        return $view->render();
     }
 
     public function getVisitList()
     {
+        $startCounter = Common::getRequestVar('filter_offset', 0, 'int');
         $nextVisits = Request::processRequest('Live.getLastVisitsDetails', array(
                                                                                 'segment'                 => self::getSegmentWithVisitorId(),
                                                                                 'filter_limit'            => API::VISITOR_PROFILE_MAX_VISITS_TO_SHOW,
-                                                                                'disable_generic_filters' => 1,
+                                                                                'filter_offset'           => $startCounter,
                                                                                 'period'                  => false,
                                                                                 'date'                    => false
                                                                            ));
@@ -192,9 +187,9 @@ class Controller extends \Piwik\Plugin\Controller
 
         $view = new View('@Live/getVisitList.twig');
         $view->idSite = Common::getRequestVar('idSite', null, 'int');
-        $view->startCounter = Common::getRequestVar('filter_offset', 0, 'int') + 1;
+        $view->startCounter = $startCounter + 1;
         $view->visits = $nextVisits;
-        echo $view->render();
+        return $view->render();
     }
 
     private function getVisitorProfileExportLink()
@@ -251,7 +246,7 @@ class Controller extends \Piwik\Plugin\Controller
                 $idVisitor = Request::processRequest('Live.getMostRecentVisitorId');
             }
 
-            $cached = $segment . 'visitorId==' . $idVisitor;
+            $cached = urlencode($segment . 'visitorId==' . $idVisitor);
         }
         return $cached;
     }

@@ -5,8 +5,6 @@
  * @link http://piwik.org
  * @license http://www.gnu.org/licenses/gpl-3.0.html GPL v3 or later
  *
- * @category Piwik_Plugins
- * @package Provider
  */
 namespace Piwik\Plugins\Provider;
 
@@ -21,16 +19,16 @@ use Piwik\IP;
 use Piwik\Menu\MenuMain;
 use Piwik\Piwik;
 use Piwik\Plugin\ViewDataTable;
+use Piwik\Plugins\PrivacyManager\Config as PrivacyManagerConfig;
 use Piwik\WidgetsList;
 
 /**
  *
- * @package Provider
  */
 class Provider extends \Piwik\Plugin
 {
     /**
-     * @see Piwik_Plugin::getListHooksRegistered
+     * @see Piwik\Plugin::getListHooksRegistered
      */
     public function getListHooksRegistered()
     {
@@ -39,7 +37,7 @@ class Provider extends \Piwik\Plugin
             'WidgetsList.addWidgets'          => 'addWidget',
             'Menu.Reporting.addItems'         => 'addMenu',
             'API.getReportMetadata'           => 'getReportMetadata',
-            'API.getSegmentsMetadata'         => 'getSegmentsMetadata',
+            'API.getSegmentDimensionMetadata' => 'getSegmentsMetadata',
             'ViewDataTable.configure'         => 'configureViewDataTable',
         );
         return $hooks;
@@ -118,7 +116,8 @@ class Provider extends \Piwik\Plugin
             return;
         }
 
-        $ip = IP::N2P(Config::getInstance()->Tracker['use_anonymized_ip_for_visit_enrichment'] == 1 ? $visitorInfo['location_ip'] : $request->getIp());
+        $privacyConfig = new PrivacyManagerConfig();
+        $ip = IP::N2P($privacyConfig->useAnonymizedIpForVisitEnrichment ? $visitorInfo['location_ip'] : $request->getIp());
 
         // In case the IP was anonymized, we should not continue since the DNS reverse lookup will fail and this will slow down tracking
         if (substr($ip, -2, 2) == '.0') {
@@ -166,21 +165,23 @@ class Provider extends \Piwik\Plugin
             $cleanHostname = null;
 
             /**
-             * Triggered when prettifying a hostname string. depending on a given hostname.
+             * Triggered when prettifying a hostname string.
              * 
              * This event can be used to customize the way a hostname is displayed in the 
              * Providers report.
              *
              * **Example**
              * 
-             * ```
-             * public function getCleanHostname(&$cleanHostname, $hostname)
-             * {
-             *     if ('fvae.VARG.ceaga.site.co.jp' == $hostname) {
-             *         $cleanHostname = 'site.co.jp';
+             *     public function getCleanHostname(&$cleanHostname, $hostname)
+             *     {
+             *         if ('fvae.VARG.ceaga.site.co.jp' == $hostname) {
+             *             $cleanHostname = 'site.co.jp';
+             *         }
              *     }
-             * }
-             * ```
+             * 
+             * @param string &$cleanHostname The hostname string to display. Set by the event
+             *                               handler.
+             * @param string $hostname The full hostname.
              */
             Piwik::postEvent('Provider.getCleanHostname', array(&$cleanHostname, $hostname));
             if ($cleanHostname !== null) {

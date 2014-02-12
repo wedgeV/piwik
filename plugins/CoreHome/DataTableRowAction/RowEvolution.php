@@ -5,8 +5,6 @@
  * @link http://piwik.org
  * @license http://www.gnu.org/licenses/gpl-3.0.html GPL v3 or later
  *
- * @category Piwik_Plugins
- * @package CoreHome
  */
 namespace Piwik\Plugins\CoreHome\DataTableRowAction;
 
@@ -14,6 +12,7 @@ use Exception;
 use Piwik\API\Request;
 use Piwik\API\ResponseBuilder;
 use Piwik\Common;
+use Piwik\DataTable;
 use Piwik\Date;
 use Piwik\Metrics;
 use Piwik\Piwik;
@@ -24,7 +23,6 @@ use Piwik\ViewDataTable\Factory;
 /**
  * ROW EVOLUTION
  * The class handles the popover that shows the evolution of a singe row in a data table
- * @package CoreHome
  */
 class RowEvolution
 {
@@ -110,7 +108,7 @@ class RowEvolution
 
     /**
      * Render the popover
-     * @param Piwik_CoreHome_Controller
+     * @param \Piwik\Plugins\CoreHome\Controller $controller
      * @param View (the popover_rowevolution template)
      */
     public function renderPopover($controller, $view)
@@ -128,9 +126,8 @@ class RowEvolution
         $popoverTitle = '';
         if ($this->rowLabel) {
             $icon = $this->rowIcon ? '<img src="' . $this->rowIcon . '" alt="">' : '';
-            $rowLabel = str_replace('/', '<wbr>/', str_replace('&', '<wbr>&', $this->rowLabel));
-            $metricsText = sprintf(Piwik::translate('RowEvolution_MetricsFor'), $this->dimension . ': ' . $icon . ' ' . $rowLabel);
-            $popoverTitle = $icon . ' ' . $rowLabel;
+            $metricsText = sprintf(Piwik::translate('RowEvolution_MetricsFor'), $this->dimension . ': ' . $icon . ' ' . $this->rowLabel);
+            $popoverTitle = $icon . ' ' . $this->rowLabel;
         }
 
         $view->availableMetricsText = $metricsText;
@@ -173,7 +170,7 @@ class RowEvolution
     protected function extractEvolutionReport($report)
     {
         $this->dataTable = $report['reportData'];
-        $this->rowLabel = Common::sanitizeInputValue($report['label']);
+        $this->rowLabel = $this->extractPrettyLabel($report);
         $this->rowIcon = !empty($report['logo']) ? $report['logo'] : false;
         $this->availableMetrics = $report['metadata']['metrics'];
         $this->dimension = $report['metadata']['dimension'];
@@ -223,15 +220,11 @@ class RowEvolution
         $i = 0;
         $metrics = array();
         foreach ($this->availableMetrics as $metric => $metricData) {
-            $max = isset($metricData['max']) ? $metricData['max'] : 0;
-            $min = isset($metricData['min']) ? $metricData['min'] : 0;
+            $unit = Metrics::getUnit($metric, $this->idSite);
             $change = isset($metricData['change']) ? $metricData['change'] : false;
 
-            $unit = Metrics::getUnit($metric, $this->idSite);
-            $min .= $unit;
-            $max .= $unit;
-
-            $details = Piwik::translate('RowEvolution_MetricBetweenText', array($min, $max));
+            list($first, $last) = $this->getFirstAndLastDataPointsForMetric($metric);
+            $details = Piwik::translate('RowEvolution_MetricBetweenText', array($first, $last));
 
             if ($change !== false) {
                 $lowerIsBetter = Metrics::isLowerValueBetter($metric);
@@ -253,9 +246,17 @@ class RowEvolution
                 $details .= ', ' . Piwik::translate('RowEvolution_MetricChangeText', $change);
             }
 
+            // set metric min/max text (used as tooltip for details)
+            $max = isset($metricData['max']) ? $metricData['max'] : 0;
+            $min = isset($metricData['min']) ? $metricData['min'] : 0;
+            $min .= $unit;
+            $max .= $unit;
+            $minmax = Piwik::translate('RowEvolution_MetricMinMax', array($metricData['name'], $min, $max));
+
             $newMetric = array(
                 'label'     => $metricData['name'],
                 'details'   => $details,
+                'minmax'    => $minmax,
                 'sparkline' => $this->getSparkline($metric),
             );
             // Multi Rows, each metric can be for a particular row and display an icon
@@ -292,5 +293,50 @@ class RowEvolution
     public function useAvailableMetrics()
     {
         $this->graphMetrics = $this->availableMetrics;
+    }
+
+    private function getFirstAndLastDataPointsForMetric($metric)
+    {
+        $first = 0;
+        $firstTable = $this->dataTable->getFirstRow();
+        if (!empty($firstTable)) {
+            $row = $firstTable->getFirstRow();
+            if (!empty($row)) {
+                $first = floatval($row->getColumn($metric));
+            }
+        }
+
+        $last = 0;
+        $lastTable = $this->dataTable->getLastRow();
+        if (!empty($lastTable)) {
+            $row = $lastTable->getFirstRow();
+            if (!empty($row)) {
+                $last = floatval($row->getColumn($metric));
+            }
+        }
+
+        return array($first, $last);
+    }
+
+    /**
+     * @param $report
+     * @return string
+     */
+    protected function extractPrettyLabel($report)
+    {
+        // By default, use the specified label
+        $rowLabel = Common::sanitizeInputValue($report['label']);
+        $rowLabel = str_replace('/', '<wbr>/', str_replace('&', '<wbr>&', $rowLabel ));
+
+        // If the dataTable specifies a label_html, use this instead
+        /** @var $dataTableMap \Piwik\DataTable\Map */
+        $dataTableMap = $report['reportData'];
+        $labelPretty = $dataTableMap->getColumn('label_html');
+        $labelPretty = array_filter($labelPretty, 'strlen');
+        $labelPretty = current($labelPretty);
+        if(!empty($labelPretty)) {
+            return $labelPretty;
+        }
+        return $rowLabel;
     }
 }

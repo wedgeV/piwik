@@ -5,6 +5,21 @@
   padding: 0;
   border-spacing: 0;
   margin: 0;
+
+  td .ratio {
+    color: #999999;
+    font-size: 12px;
+    display:none;
+    text-align: right;
+    min-width: 45px;
+    margin-left: 4px;
+    font-weight: normal;
+  }
+
+  td.highlight > .ratio {
+    display: inline-block;
+    line-height: 15px;
+  }
 }
 
 div.dataTable {
@@ -85,6 +100,10 @@ table.dataTable tr:hover > td.cellSubDataTable .dataTableRowActions {
 
 td.clean {
   background-color: #fff;
+}
+
+table.dataTable td.column {
+  white-space: nowrap;
 }
 
 table.dataTable td.columneven {
@@ -392,6 +411,30 @@ tr.level3 td.label {
 tr.level4 td.label {
   padding-left: 5em;
 }
+tr.level5 td.label {
+  padding-left: 5.5em;
+}
+tr.level6 td.label {
+  padding-left: 6em;
+}
+tr.level7 td.label {
+  padding-left: 6.5em;
+}
+tr.level8 td.label {
+  padding-left: 7em;
+}
+tr.level9 td.label {
+  padding-left: 7.5em;
+}
+tr.level10 td.label {
+  padding-left: 8em;
+}
+tr.level11 td.label {
+  padding-left: 8.5em;
+}
+tr.level12 td.label {
+  padding-left: 9em;
+}
 
 /* less right margins for the link image in the Pa*/
 .dataTableActions table.dataTable img.link {
@@ -438,4 +481,16 @@ table.dataTable span.cell-tooltip {
 
 td.cellSubDataTable .loadingPiwik {
     padding:0;
+}
+
+.dataTable .searchReset {
+  position:relative;
+
+  img {
+    position: absolute;
+    top: 4px;
+    left: -15px;
+    cursor: pointer;
+    display: inline;
+  }
 }

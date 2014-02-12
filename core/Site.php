@@ -5,8 +5,6 @@
  * @link http://piwik.org
  * @license http://www.gnu.org/licenses/gpl-3.0.html GPL v3 or later
  *
- * @category Piwik
- * @package Piwik
  */
 
 namespace Piwik;
@@ -15,7 +13,17 @@ use Exception;
 use Piwik\Plugins\SitesManager\API;
 
 /**
- * Provides access to individual site data (such as name, URL, etc.).
+ * Provides access to individual [site entity](/guides/persistence-and-the-mysql-backend#websites-aka-sites) data
+ * (including name, URL, etc.).
+ * 
+ * **Data Cache**
+ * 
+ * Site data can be cached in order to avoid performing too many queries.
+ * If a method needs many site entities, it is more efficient to query all of what
+ * you need beforehand via the **SitesManager** API, then cache it using {@link setSites()} or
+ * {@link setSitesFromArray()}.
+ * 
+ * Subsequent calls to `new Site($id)` will use the data in the cache instead of querying the database.
  * 
  * ### Examples
  * 
@@ -28,11 +36,12 @@ use Piwik\Plugins\SitesManager\API;
  * 
  *     $name = Site::getNameFor($idSite);
  * 
- * @package Piwik
  * @api
  */
 class Site
 {
+    const DEFAULT_SITE_TYPE = "website";
+
     /**
      * @var int|null
      */
@@ -41,7 +50,7 @@ class Site
     /**
      * @var array
      */
-    public static $infoSites = array();
+    protected static $infoSites = array();
 
     /**
      * Constructor.
@@ -52,7 +61,8 @@ class Site
     {
         $this->id = (int)$idsite;
         if (!isset(self::$infoSites[$this->id])) {
-            self::$infoSites[$this->id] = API::getInstance()->getSiteFromId($this->id);
+            $site = API::getInstance()->getSiteFromId($this->id);
+            self::setSite($this->id, $site);
         }
     }
 
@@ -61,34 +71,103 @@ class Site
      * individual site data.
      *
      * @param array $sites The array of sites data. Indexed by site ID. eg,
-     *                     ```
-     *                     array('1' => array('name' => 'Site 1', ...),
-     *                           '2' => array('name' => 'Site 2', ...))`
-     *                     ```
+     *                     
+     *                         array('1' => array('name' => 'Site 1', ...),
+     *                               '2' => array('name' => 'Site 2', ...))`
      */
     public static function setSites($sites)
     {
-        self::$infoSites = $sites;
+        foreach($sites as $idsite => $site) {
+            self::setSite($idsite, $site);
+        }
+    }
+
+    /**
+     * Sets a site information in memory (statically cached).
+     *
+     * Plugins can filter the website attributes before it is cached, eg. to change the website name,
+     * creation date, etc.
+     *
+     * @param $idSite
+     * @param $infoSite
+     * @throws Exception if website or idsite is invalid
+     */
+    protected static function setSite($idSite, $infoSite)
+    {
+        if(empty($idSite) || empty($infoSite)) {
+            throw new Exception("An unexpected website was found, check idSite in the request.");
+        }
+
+        /**
+         * Triggered so plugins can modify website entities without modifying the database.
+         * 
+         * This event should **not** be used to add data that is expensive to compute. If you
+         * need to make HTTP requests or query the database for more information, this is not
+         * the place to do it.
+         *
+         * **Example**
+         * 
+         *     Piwik::addAction('Site.setSite', function ($idSite, &$info) {
+         *         $info['name'] .= " (original)";
+         *     });
+         * 
+         * @param int $idSite The ID of the website entity that will be modified.
+         * @param array $infoSite The website entity. [Learn more.](/guides/persistence-and-the-mysql-backend#websites-aka-sites)
+         */
+        Piwik::postEvent('Site.setSite', array($idSite, &$infoSite));
+
+        self::$infoSites[$idSite] = $infoSite;
     }
 
     /**
      * Sets the cached Site data with a non-associated array of site data.
      * 
      * @param array $sites The array of sites data. eg,
-     *                     ```
-     *                     array(
-     *                         array('idsite' => '1', 'name' => 'Site 1', ...),
-     *                         array('idsite' => '2', 'name' => 'Site 2', ...),
-     *                     )
-     *                     ```
+     *                     
+     *                         array(
+     *                             array('idsite' => '1', 'name' => 'Site 1', ...),
+     *                             array('idsite' => '2', 'name' => 'Site 2', ...),
+     *                         )
      */
     public static function setSitesFromArray($sites)
     {
-        $sitesById = array();
         foreach ($sites as $site) {
-            $sitesById[$site['idsite']] = $site;
+            self::setSite($site['idsite'], $site);
         }
-        self::setSites($sitesById);
+    }
+
+    /**
+     * The Multisites reports displays the first calendar date as the earliest day available for all websites.
+     * Also, today is the later "today" available across all timezones.
+     * @param array $siteIds Array of IDs for each site being displayed.
+     * @return Date[] of two Date instances. First is the min-date & the second
+     *               is the max date.
+     * @ignore
+     */
+    public static function getMinMaxDateAcrossWebsites($siteIds)
+    {
+        $siteIds = self::getIdSitesFromIdSitesString($siteIds);
+        $now = Date::now();
+
+        $minDate = null;
+        $maxDate = $now->subDay(1)->getTimestamp();
+        foreach ($siteIds as $idsite) {
+            // look for 'now' in the website's timezone
+            $timezone = Site::getTimezoneFor($idsite);
+            $date = Date::adjustForTimezone($now->getTimestamp(), $timezone);
+            if ($date > $maxDate) {
+                $maxDate = $date;
+            }
+
+            // look for the absolute minimum date
+            $creationDate = Site::getCreationDateFor($idsite);
+            $date = Date::adjustForTimezone(strtotime($creationDate), $timezone);
+            if (is_null($minDate) || $date < $minDate) {
+                $minDate = $date;
+            }
+        }
+
+        return array(Date::factory($minDate), Date::factory($maxDate));
     }
 
     /**
@@ -155,6 +234,17 @@ class Site
             throw new Exception('The requested website id = ' . (int)$this->id . ' (or its property ' . $name . ') couldn\'t be found');
         }
         return self::$infoSites[$this->id][$name];
+    }
+
+    /**
+     * Returns the website type (by default `"website"`, which means it is a single website).
+     * 
+     * @return string
+     */
+    public function getType()
+    {
+        $type = $this->get('type');
+        return $type;
     }
 
     /**
@@ -258,10 +348,11 @@ class Site
     }
 
     /**
-     * Checks the given string for valid site ids and returns them as an array.
+     * Checks the given string for valid site IDs and returns them as an array.
      *
-     * @param string $ids Comma separated idSite list, eg, `'1,2,3,4'`.
-     * @param bool|string $_restrictSitesToLogin Used only when running as a scheduled task.
+     * @param string|array $ids Comma separated idSite list, eg, `'1,2,3,4'` or an array of IDs, eg,
+     *                          `array(1, 2, 3, 4)`.
+     * @param bool|string $_restrictSitesToLogin Implementation detail. Used only when running as a scheduled task.
      * @return array An array of valid, unique integers.
      */
     static public function getIdSitesFromIdSitesString($ids, $_restrictSitesToLogin = false)
@@ -270,6 +361,9 @@ class Site
             return API::getInstance()->getSitesIdWithAtLeastViewAccess($_restrictSitesToLogin);
         }
 
+        if(is_bool($ids)) {
+            return array();
+        }
         if (!is_array($ids)) {
             $ids = explode(',', $ids);
         }
@@ -289,7 +383,7 @@ class Site
     /**
      * Clears the site data cache.
      * 
-     * See also [setSites](#setSites) and [setSitesFromArray](#setSitesFromArray).
+     * See also {@link setSites()} and {@link setSitesFromArray()}.
      */
     static public function clearCache()
     {
@@ -300,20 +394,40 @@ class Site
      * Utility function. Returns the value of the specified field for the
      * site with the specified ID.
      *
-     * @param int|string $idsite The ID of the site whose data is being
-     *                             accessed.
-     * @param string $field The name of the field to get.
-     * @return mixed
+     * @param int $idsite The ID of the site whose data is being accessed.
+     * @param bool|string $field The name of the field to get.
+     * @return array|string
      */
-    static protected function getFor($idsite, $field)
+    static protected function getFor($idsite, $field = false)
     {
         $idsite = (int)$idsite;
 
         if (!isset(self::$infoSites[$idsite])) {
-            self::$infoSites[$idsite] = API::getInstance()->getSiteFromId($idsite);
+            $site = API::getInstance()->getSiteFromId($idsite);
+            self::setSite($idsite, $site);
         }
+        if($field) {
+            return self::$infoSites[$idsite][$field];
+        }
+        return self::$infoSites[$idsite];
+    }
 
-        return self::$infoSites[$idsite][$field];
+    /**
+     * Returns all websites pre-cached
+     *
+     * @ignore
+     */
+    static public function getSites()
+    {
+        return self::$infoSites;
+    }
+
+    /**
+     * @ignore
+     */
+    static public function getSite($id)
+    {
+        return self::getFor($id);
     }
 
     /**
@@ -339,6 +453,17 @@ class Site
     }
 
     /**
+     * Returns the type of the site with the specified ID.
+     *
+     * @param $idsite
+     * @return string
+     */
+    static public function getTypeFor($idsite)
+    {
+        return self::getFor($idsite, 'type');
+    }
+
+    /**
      * Returns the creation date of the site with the specified ID.
      *
      * @param int $idsite The site ID.
@@ -361,7 +486,7 @@ class Site
     }
 
     /**
-     * Returns whether the site with the specified ID is ecommerce enabled
+     * Returns whether the site with the specified ID is ecommerce enabled or not.
      *
      * @param int $idsite The site ID.
      * @return string
@@ -372,7 +497,7 @@ class Site
     }
 
     /**
-     * Returns whether the site with the specified ID is Site Search enabled
+     * Returns whether the site with the specified ID is Site Search enabled.
      *
      * @param int $idsite The site ID.
      * @return string

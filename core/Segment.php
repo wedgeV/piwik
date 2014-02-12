@@ -5,8 +5,6 @@
  * @link http://piwik.org
  * @license http://www.gnu.org/licenses/gpl-3.0.html GPL v3 or later
  *
- * @category Piwik
- * @package Piwik
  */
 namespace Piwik;
 
@@ -20,8 +18,8 @@ use Piwik\Plugins\API\API;
  * select visits that have a specific browser or come from a specific
  * country, or both.
  * 
- * Individual segment parameters (such as `browserCode` and `countryCode`)
- * are defined by individual plugins. Read about the [API.getSegmentsMetadata](#)
+ * Individual segment dimensions (such as `browserCode` and `countryCode`)
+ * are defined by plugins. Read about the {@hook API.getSegmentDimensionMetadata}
  * event to learn more.
  * 
  * Plugins that aggregate data stored in Piwik can support segments by
@@ -46,13 +44,12 @@ use Piwik\Plugins\API\API;
  *     
  *     Db::fetchAll($query['sql'], $query['bind']);
  * 
- * **Creating a 'null' segment**
+ * **Creating a _null_ segment**
  * 
  *     $idSites = array(1,2,3);
  *     $segment = new Segment('', $idSites);
  *     // $segment->getSelectQuery will return a query that selects all visits
  * 
- * @package Piwik
  * @api
  */
 class Segment
@@ -124,7 +121,7 @@ class Segment
     }
 
     /**
-     * Returns true if the segment is empty, false if otherwise.
+     * Returns `true` if the segment is empty, `false` if otherwise.
      */
     public function isEmpty()
     {
@@ -276,8 +273,8 @@ class Segment
      */
     private function generateJoins($tables)
     {
-        $knownTables = array("log_visit", "log_link_visit_action", "log_conversion");
-        $visitsAvailable = $actionsAvailable = $conversionsAvailable = false;
+        $knownTables = array("log_visit", "log_link_visit_action", "log_conversion", "log_conversion_item");
+        $visitsAvailable = $actionsAvailable = $conversionsAvailable = $conversionItemAvailable = false;
         $joinWithSubSelect = false;
         $sql = '';
 
@@ -319,8 +316,6 @@ class Segment
                 // first table
                 $sql .= $tableSql;
             } else {
-                $join = "";
-
                 if ($actionsAvailable && $table == "log_conversion") {
                     // have actions, need conversions => join on idlink_va
                     $join = "log_conversion.idlink_va = log_link_visit_action.idlink_va "
@@ -347,8 +342,14 @@ class Segment
                     if ($table == "log_conversion") {
                         $joinWithSubSelect = true;
                     }
+                } elseif ($conversionItemAvailable && $table === 'log_visit') {
+                    $join = "log_conversion_item.idvisit = log_visit.idvisit";
+                } elseif ($conversionItemAvailable && $table === 'log_link_visit_action') {
+                    $join = "log_conversion_item.idvisit = log_link_visit_action.idvisit";
+                } elseif ($conversionItemAvailable && $table === 'log_conversion') {
+                    $join = "log_conversion_item.idvisit = log_conversion.idvisit";
                 } else {
-                    throw new Exception("Table '$table', can't be joined for segmentation");
+                    throw new Exception("Table '$table' can't be joined for segmentation");
                 }
 
                 // the join sql the default way
@@ -360,6 +361,7 @@ class Segment
             $visitsAvailable = ($visitsAvailable || $table == "log_visit");
             $actionsAvailable = ($actionsAvailable || $table == "log_link_visit_action");
             $conversionsAvailable = ($conversionsAvailable || $table == "log_conversion");
+            $conversionItemAvailable = ($conversionItemAvailable || $table == "log_conversion_item");
         }
 
         return array(

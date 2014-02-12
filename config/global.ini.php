@@ -19,6 +19,9 @@ dbname =
 tables_prefix =
 port = 3306
 adapter = PDO_MYSQL
+type = InnoDB
+schema = Mysql
+
 ; if charset is set to utf8, Piwik will ensure that it is storing its data using UTF8 charset.
 ; it will add a sql query SET at each page view.
 ; Piwik should work correctly without this setting.
@@ -32,10 +35,29 @@ dbname = piwik_tests
 tables_prefix = piwiktests_
 port = 3306
 adapter = PDO_MYSQL
+type = InnoDB
+schema = Mysql
 
-[superuser]
-login = 
-password =
+[log]
+; possible values for log: screen, database, file
+log_writers[] = screen
+
+; log level, everything logged w/ this level or one of greater severity
+; will be logged. everything else will be ignored. possible values are:
+; NONE, ERROR, WARN, INFO, DEBUG, VERBOSE
+log_level = WARN
+
+; if set to 1, only requests done in CLI mode (eg. the archive.php cron run) will be logged
+; NOTE: log_only_when_debug_parameter will also be checked for
+log_only_when_cli = 0
+
+; if set to 1, only requests with "&debug" parameter will be logged
+; NOTE: log_only_when_cli will also be checked for
+log_only_when_debug_parameter = 0
+
+; if configured to log in a file, log entries will be made to this file
+logger_file_path = tmp/logs/piwik.log
+
 
 [Debug]
 ; if set to 1, the archiving process will always be triggered, even if the archive has already been computed
@@ -54,8 +76,9 @@ enable_sql_profiler = 0
 ; this is useful for Piwik developers as an easy way to create data in their local Piwik
 track_visits_inside_piwik_ui = 0
 
-; if set to 1, javascript and css files will be included individually
-; this option must be set to 1 when adding, removing or modifying javascript and css files
+; if set to 1, javascript files will be included individually and the css will be regenerated from the less
+; files when they change
+; this option must be set to 1 when adding, removing or modifying javascript and less files
 disable_merged_assets = 0
 
 ; If set to 1, all requests to piwik.php will be forced to be 'new visitors'
@@ -109,7 +132,7 @@ all_websites_website_per_page = 50
 anonymous_user_enable_use_segments_API = 1
 
 ; if browser trigger archiving is disabled, API requests with a &segment= parameter will still trigger archiving.
-; You can force the browser archiving to be disabled in most cases by setting this setting to 0
+; You can force the browser archiving to be disabled in most cases by setting this setting to 1
 ; The only time that the browser will still trigger archiving is when requesting a custom date range that is not pre-processed yet
 browser_archiving_disabled_enforce = 0
 
@@ -136,11 +159,12 @@ default_period = day
 ; Time in seconds after which an archive will be computed again. This setting is used only for today's statistics.
 ; Defaults to 10 seconds so that by default, Piwik provides real time reporting.
 ; This setting is overriden in the UI, under "General Settings".
-; This is the default value used if the setting hasn't been overriden via the UI.
+; This setting is only used if it hasn't been overriden via the UI yet, or if enable_general_settings_admin=0
 time_before_today_archive_considered_outdated = 10
 
-; This setting is overriden in the UI, under "General Settings". The default value is to allow browsers
-; to trigger the Piwik archiving process.
+; This setting is overriden in the UI, under "General Settings".
+; The default value is to allow browsers to trigger the Piwik archiving process.
+; This setting is only used if it hasn't been overriden via the UI yet, or if enable_general_settings_admin=0
 enable_browser_archiving_triggering = 1
 
 ; By default Piwik runs OPTIMIZE TABLE SQL queries to free spaces after deleting some data.
@@ -172,11 +196,6 @@ hash_algorithm = whirlpool
 ; by default, Piwik uses PHP's built-in file-based session save handler with lock files.
 ; For clusters, use dbtable.
 session_save_handler = files
-
-; by default, Piwik uses relative URLs, so you can login using http:// or https://
-; (the latter assumes you have a valid SSL certificate).
-; If set to 1, Piwik redirects the login form to use a secure connection (i.e., https).
-force_ssl_login = 0
 
 ; If set to 1, Piwik will automatically redirect all http:// requests to https://
 ; If SSL / https is not correctly configured on the server, this will break Piwik
@@ -327,9 +346,39 @@ overlay_following_pages_limit = 300
 ; With this option, you can disable the framed mode of the Overlay plugin. Use it if your website contains a framebuster.
 overlay_disable_framed_mode = 0
 
+; If php is running in a chroot environment, when trying to import CSV files with createTableFromCSVFile(),
+; Mysql will try to load the chrooted path (which is imcomplete). To prevent an error, here you can specify the
+; absolute path to the chroot environment. eg. '/path/to/piwik/chrooted/'
+absolute_chroot_path =
+
+; In some rare cases it may be useful to explicitely tell Piwik not to use LOAD DATA INFILE
+; This may for example be useful when doing Mysql AWS replication
+enable_load_data_infile = 1
+
 ; By setting this option to 0, you can disable the Piwik marketplace. This is useful to prevent giving the Super user
 ; the access to disk and install custom PHP code (Piwik plugins).
-enable_marketplace = 0
+enable_marketplace = 1
+
+; By setting this option to 0:
+; - links to Enable/Disable/Uninstall plugins will be hidden and disabled
+; - links to Uninstall themes will be disabled (but user can still enable/disable themes)
+; - as well as disabling plugins admin actions (such as "Upload new plugin"), setting this to 1 will have same effect as setting enable_marketplace=1
+enable_plugins_admin = 1
+
+; By setting this option to 0, you can prevent Super User from editing the Geolocation settings.
+enable_geolocation_admin = 1
+
+; By setting this option to 0, the old log data and old report data features will be hidden from the UI
+; Note: log purging and old data purging still occurs, just the Super User cannot change the settings.
+enable_delete_old_data_settings_admin = 1
+
+; By setting this option to 0, the following settings will be hidden and disabled from being set in the UI:
+; - "General Settings"
+; - "Email server settings"
+enable_general_settings_admin = 1
+
+; By setting this option to 0, it will disable the "Auto update" feature
+enable_auto_update = 1
 
 [Tracker]
 ; Piwik uses first party cookies by default. If set to 1,
@@ -401,22 +450,10 @@ campaign_var_name = "pk_campaign,piwik_campaign,utm_campaign,utm_source,utm_medi
 ; Example: If a visitor first visits 'index.php?piwik_campaign=Adwords-CPC&piwik_kwd=My killer keyword' ;
 ; then it will be counted as a campaign referrer named 'Adwords-CPC' with the keyword 'My killer keyword'
 ; Includes by default the GA style campaign keyword parameter utm_term
-campaign_keyword_var_name = "pk_kwd,piwik_kwd,utm_term"
+campaign_keyword_var_name = "pk_kwd,piwik_kwd,pk_keyword,utm_term"
 
 ; maximum length of a Page Title or a Page URL recorded in the log_action.name table
 page_maximum_length = 1024;
-
-; Anonymize a visitor's IP address after testing for "Ip exclude"
-; This value is the level of anonymization Piwik will use; if the AnonymizeIP plugin is deactivated, this value is ignored.
-; For IPv4/IPv6 addresses, valid values are the number of octets in IP address to mask (from 0 to 4).
-; For IPv6 addresses 0..4 means that 0, 64, 80, 104 or all bits are masked.
-ip_address_mask_length = 1
-
-
-; Set this setting to 0 to let plugins use the full non-anonymized IP address when enriching visitor information.
-; When set to 1, by default, Geo Location via geoip and Provider reverse name lookups
-; will use the anonymized IP address when anonymization is enabled.
-use_anonymized_ip_for_visit_enrichment = 1
 
 ; Tracker cache files are the simple caching layer for Tracking.
 ; TTL: Time to live for cache files, in seconds. Default to 5 minutes.
@@ -450,12 +487,19 @@ tracking_requests_require_authentication = 1
 delete_logs_enable = 0
 delete_logs_schedule_lowest_interval = 7
 delete_logs_older_than = 180
+delete_logs_max_rows_per_query = 100000
 enable_auto_database_size_estimate = 1
 
-[branding]
-; custom logo
-; if 1, custom logo is being displayed instead of piwik logo
-use_custom_logo = 0
+[Deletereports]
+delete_reports_enable                = 0
+delete_reports_older_than            = 12
+delete_reports_keep_basic_metrics    = 1
+delete_reports_keep_day_reports      = 0
+delete_reports_keep_week_reports     = 0
+delete_reports_keep_month_reports    = 1
+delete_reports_keep_year_reports     = 1
+delete_reports_keep_range_reports    = 0
+delete_reports_keep_segment_reports  = 0
 
 [mail]
 defaultHostnameIfEmpty = defaultHostnameIfEmpty.example.org ; default Email @hostname, if current host can't be read from system variables
@@ -473,26 +517,6 @@ host = ; Proxy host: the host name of your proxy server (mandatory)
 port = ; Proxy port: the port that the proxy server listens to. There is no standard default, but 80, 1080, 3128, and 8080 are popular
 username = ; Proxy username: optional; if specified, password is mandatory
 password = ; Proxy password: optional; if specified, username is mandatory
-
-[log]
-; possible values for log: screen, database, file
-log_writers[] = screen
-
-; log level, everything logged w/ this level or one of greater severity
-; will be logged. everything else will be ignored. possible values are:
-; NONE, ERROR, WARN, INFO, DEBUG, VERBOSE
-log_level = WARN
-
-; if set to 1, only requests done in CLI mode (eg. the archive.php cron run) will be logged
-; NOTE: log_only_when_debug_parameter will also be checked for
-log_only_when_cli = 0
-
-; if set to 1, only requests with "&debug" parameter will be logged
-; NOTE: log_only_when_cli will also be checked for
-log_only_when_debug_parameter = 0
-
-; if configured to log in a file, log entries will be made to this file
-logger_file_path = tmp/logs/piwik.log
 
 [Plugins]
 Plugins[] = CorePluginsAdmin
@@ -535,11 +559,12 @@ Plugins[] = Live
 Plugins[] = CustomVariables
 Plugins[] = PrivacyManager
 Plugins[] = ImageGraph
-Plugins[] = DoNotTrack
 Plugins[] = Annotations
 Plugins[] = MobileMessaging
 Plugins[] = Overlay
 Plugins[] = SegmentEditor
+
+Plugins[] = Morpheus
 
 [PluginsInstalled]
 PluginsInstalled[] = Login
@@ -551,8 +576,9 @@ PluginsInstalled[] = Installation
 [Plugins_Tracker]
 Plugins_Tracker[] = Provider
 Plugins_Tracker[] = Goals
-Plugins_Tracker[] = DoNotTrack
+Plugins_Tracker[] = PrivacyManager
 Plugins_Tracker[] = UserCountry
+Plugins_Tracker[] = Login
 
 [APISettings]
 ; Any key/value pair can be added in this section, they will be available via the REST call

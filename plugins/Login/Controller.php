@@ -5,8 +5,6 @@
  * @link http://piwik.org
  * @license http://www.gnu.org/licenses/gpl-3.0.html GPL v3 or later
  *
- * @category Piwik_Plugins
- * @package Login
  */
 namespace Piwik\Plugins\Login;
 
@@ -32,7 +30,6 @@ require_once PIWIK_INCLUDE_PATH . '/core/Config.php';
 /**
  * Login controller
  *
- * @package Login
  */
 class Controller extends \Piwik\Plugin\Controller
 {
@@ -62,7 +59,7 @@ class Controller extends \Piwik\Plugin\Controller
      */
     function index()
     {
-        $this->login();
+        return $this->login();
     }
 
     /**
@@ -71,12 +68,10 @@ class Controller extends \Piwik\Plugin\Controller
      * @param string $messageNoAccess Access error message
      * @param bool $infoMessage
      * @internal param string $currentUrl Current URL
-     * @return void
+     * @return string
      */
     function login($messageNoAccess = null, $infoMessage = false)
     {
-        self::checkForceSslLogin();
-
         $form = new FormLogin();
         if ($form->validate()) {
             $nonce = $form->getSubmitValue('form_nonce');
@@ -101,7 +96,8 @@ class Controller extends \Piwik\Plugin\Controller
         $view->addForm($form);
         $this->configureView($view);
         self::setHostValidationVariablesView($view);
-        echo $view->render();
+
+        return $view->render();
     }
 
     /**
@@ -115,8 +111,6 @@ class Controller extends \Piwik\Plugin\Controller
 
         $view->linkTitle = Piwik::getRandomTitle();
 
-        $view->forceSslLogin = Config::getInstance()->General['force_ssl_login'];
-
         // crsf token: don't trust the submitted value; generate/fetch it from session data
         $view->nonce = Nonce::getNonce('Login.login');
     }
@@ -129,16 +123,14 @@ class Controller extends \Piwik\Plugin\Controller
      */
     function logme()
     {
-        self::checkForceSslLogin();
-
         $password = Common::getRequestVar('password', null, 'string');
         if (strlen($password) != 32) {
             throw new Exception(Piwik::translate('Login_ExceptionPasswordMD5HashExpected'));
         }
 
         $login = Common::getRequestVar('login', null, 'string');
-        if ($login == Config::getInstance()->superuser['login']) {
-            throw new Exception(Piwik::translate('Login_ExceptionInvalidSuperUserAuthenticationMethod', array("logme")));
+        if (Piwik::hasTheUserSuperUserAccess($login)) {
+            throw new Exception(Piwik::translate('Login_ExceptionInvalidSuperUserAccessAuthenticationMethod', array("logme")));
         }
 
         $currentUrl = 'index.php';
@@ -162,12 +154,16 @@ class Controller extends \Piwik\Plugin\Controller
      * @param string $urlToRedirect URL to redirect to, if successfully authenticated
      * @return string failure message if unable to authenticate
      */
-    protected function authenticateAndRedirect($login, $md5Password, $rememberMe, $urlToRedirect = 'index.php')
+    protected function authenticateAndRedirect($login, $md5Password, $rememberMe, $urlToRedirect = false)
     {
         Nonce::discardNonce('Login.login');
 
         \Piwik\Registry::get('auth')->initSession($login, $md5Password, $rememberMe);
-        
+
+        if(empty($urlToRedirect)) {
+            $urlToRedirect = Url::getCurrentUrlWithoutQueryString();
+        }
+
         Url::redirectToUrl($urlToRedirect);
     }
 
@@ -183,12 +179,9 @@ class Controller extends \Piwik\Plugin\Controller
      * to confirm use.
      *
      * @param none
-     * @return void
      */
     function resetPassword()
     {
-        self::checkForceSslLogin();
-
         $infoMessage = null;
         $formErrors = null;
 
@@ -212,7 +205,8 @@ class Controller extends \Piwik\Plugin\Controller
         $view = new View('@Login/resetPassword');
         $view->infoMessage = $infoMessage;
         $view->formErrors = $formErrors;
-        echo $view->render();
+
+        return $view->render();
     }
 
     /**
@@ -224,8 +218,7 @@ class Controller extends \Piwik\Plugin\Controller
     private function resetPasswordFirstStep($form)
     {
         $loginMail = $form->getSubmitValue('form_login');
-        $token = $form->getSubmitValue('form_token');
-        $password = $form->getSubmitValue('form_password');
+        $password  = $form->getSubmitValue('form_password');
 
         // check the password
         try {
@@ -329,12 +322,11 @@ class Controller extends \Piwik\Plugin\Controller
 
         if (is_null($errorMessage)) // if success, show login w/ success message
         {
-            $this->redirectToIndex('Login', 'resetPasswordSuccess');
+            $this->redirectToIndex(Piwik::getLoginPluginName(), 'resetPasswordSuccess');
             return;
         } else {
             // show login page w/ error. this will keep the token in the URL
-            $this->login($errorMessage);
-            return;
+            return $this->login($errorMessage);
         }
     }
 
@@ -353,14 +345,8 @@ class Controller extends \Piwik\Plugin\Controller
                 "setNewUserPassword called w/ incorrect password hash. Something has gone terribly wrong.");
         }
 
-        if ($user['email'] == Piwik::getSuperUserEmail()) {
-            $user['password'] = $passwordHash;
-            Config::getInstance()->superuser = $user;
-            Config::getInstance()->forceSave();
-        } else {
-            API::getInstance()->updateUser(
-                $user['login'], $passwordHash, $email = false, $alias = false, $isPasswordHashed = true);
-        }
+        API::getInstance()->updateUser(
+            $user['login'], $passwordHash, $email = false, $alias = false, $isPasswordHashed = true);
     }
 
     /**
@@ -370,7 +356,7 @@ class Controller extends \Piwik\Plugin\Controller
      */
     public function resetPasswordSuccess()
     {
-        $this->login($errorMessage = null, $infoMessage = Piwik::translate('Login_PasswordChanged'));
+        return $this->login($errorMessage = null, $infoMessage = Piwik::translate('Login_PasswordChanged'));
     }
 
     /**
@@ -381,18 +367,10 @@ class Controller extends \Piwik\Plugin\Controller
      */
     protected function getUserInformation($loginMail)
     {
-        Piwik::setUserIsSuperUser();
+        Piwik::setUserHasSuperUserAccess();
 
         $user = null;
-        if ($loginMail == Piwik::getSuperUserEmail()
-            || $loginMail == Config::getInstance()->superuser['login']
-        ) {
-            $user = array(
-                'login'    => Config::getInstance()->superuser['login'],
-                'email'    => Piwik::getSuperUserEmail(),
-                'password' => Config::getInstance()->superuser['password'],
-            );
-        } else if (API::getInstance()->userExists($loginMail)) {
+        if (API::getInstance()->userExists($loginMail)) {
             $user = API::getInstance()->getUser($loginMail);
         } else if (API::getInstance()->userEmailExists($loginMail)) {
             $user = API::getInstance()->getUserByEmail($loginMail);
@@ -479,26 +457,6 @@ class Controller extends \Piwik\Plugin\Controller
             Piwik::redirectToModule('CoreHome');
         } else {
             Url::redirectToUrl($logoutUrl);
-        }
-    }
-
-    /**
-     * Check force_ssl_login and redirect if connection isn't secure and not using a reverse proxy
-     *
-     * @param none
-     * @return void
-     */
-    protected function checkForceSslLogin()
-    {
-        $forceSslLogin = Config::getInstance()->General['force_ssl_login'];
-        if ($forceSslLogin
-            && !ProxyHttp::isHttps()
-        ) {
-            $url = 'https://'
-                . Url::getCurrentHost()
-                . Url::getCurrentScriptName()
-                . Url::getCurrentQueryString();
-            Url::redirectToUrl($url);
         }
     }
 }

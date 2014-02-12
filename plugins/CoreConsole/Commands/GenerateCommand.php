@@ -5,8 +5,6 @@
  * @link http://piwik.org
  * @license http://www.gnu.org/licenses/gpl-3.0.html GPL v3 or later
  *
- * @category Piwik_Plugins
- * @package CoreConsole
  */
 
 namespace Piwik\Plugins\CoreConsole\Commands;
@@ -18,7 +16,6 @@ use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 
 /**
- * @package CoreConsole
  */
 class GenerateCommand extends GeneratePluginBase
 {
@@ -50,7 +47,7 @@ class GenerateCommand extends GeneratePluginBase
         $this->writeSuccessMessage($output, array(
             sprintf('Command %s for plugin %s generated but you are not done!', $commandName, $pluginName),
             'You have to register the command by using the hook: Console.addCommands',
-            'Read more here: http://developer.piwik.org/api-reference/hooks#consoleaddcommands'
+            'Read more here: http://developer.piwik.org/api-reference/events#consoleaddcommands'
         ));
     }
 
@@ -84,35 +81,11 @@ class GenerateCommand extends GeneratePluginBase
         return $testname;
     }
 
-    /**
-     * @param InputInterface $input
-     * @param OutputInterface $output
-     * @return string
-     * @throws \RunTimeException
-     */
-    private function getPluginName(InputInterface $input, OutputInterface $output)
+    protected function getPluginName(InputInterface $input, OutputInterface $output)
     {
         $pluginNames = $this->getPluginNames();
+        $invalidName = 'You have to enter the name of an existing plugin';
 
-        $validate = function ($pluginName) use ($pluginNames) {
-            if (!in_array($pluginName, $pluginNames)) {
-                throw new \InvalidArgumentException('You have to enter the name of an existing plugin');
-            }
-
-            return $pluginName;
-        };
-
-        $pluginName = $input->getOption('pluginname');
-
-        if (empty($pluginName)) {
-            $dialog = $this->getHelperSet()->get('dialog');
-            $pluginName = $dialog->askAndValidate($output, 'Enter the name of your plugin: ', $validate, false, null, $pluginNames);
-        } else {
-            $validate($pluginName);
-        }
-
-        $pluginName = ucfirst($pluginName);
-
-        return $pluginName;
+        return $this->askPluginNameAndValidate($input, $output, $pluginNames, $invalidName);
     }
 }

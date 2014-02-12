@@ -5,14 +5,13 @@
  * @link http://piwik.org
  * @license http://www.gnu.org/licenses/gpl-3.0.html GPL v3 or later
  *
- * @category Piwik
- * @package Piwik
  */
 namespace Piwik;
 
 use Exception;
 use Piwik\Translate;
 use Piwik\Visualization\Sparkline;
+use Piwik\View\RenderTokenParser;
 use Twig_Environment;
 use Twig_Extension_Debug;
 use Twig_Loader_Chain;
@@ -23,8 +22,6 @@ use Twig_SimpleFunction;
 /**
  * Twig class
  *
- * @package Piwik
- * @subpackage Twig
  */
 class Twig
 {
@@ -65,6 +62,7 @@ class Twig
         $this->addFilter_money();
         $this->addFilter_truncate();
         $this->addFilter_notificiation();
+        $this->addFilter_percentage();
         $this->twig->addFilter(new Twig_SimpleFilter('implode', 'implode'));
         $this->twig->addFilter(new Twig_SimpleFilter('ucwords', 'ucwords'));
 
@@ -74,6 +72,8 @@ class Twig
         $this->addFunction_postEvent();
         $this->addFunction_isPluginLoaded();
         $this->addFunction_getJavascriptTranslations();
+
+        $this->twig->addTokenParser(new RenderTokenParser());
     }
 
     protected function addFunction_getJavascriptTranslations()
@@ -103,9 +103,9 @@ class Twig
             $assetType = strtolower($params['type']);
             switch ($assetType) {
                 case 'css':
-                    return AssetManager::getCssAssets();
+                    return AssetManager::getInstance()->getCssInclusionDirective();
                 case 'js':
-                    return AssetManager::getJsAssets();
+                    return AssetManager::getInstance()->getJsInclusionDirective();
                 default:
                     throw new Exception("The twig function includeAssets 'type' parameter needs to be either 'css' or 'js'.");
             }
@@ -187,6 +187,14 @@ class Twig
         $this->twig->addFilter($notificationFunction);
     }
 
+    protected function addFilter_percentage()
+    {
+        $percentage = new Twig_SimpleFilter('percentage', function ($string, $totalValue, $precision = 1) {
+            return Piwik::getPercentageSafe($string, $totalValue, $precision) . '%';
+        });
+        $this->twig->addFilter($percentage);
+    }
+
     protected function addFilter_truncate()
     {
         $truncateFilter = new Twig_SimpleFilter('truncate', function ($string, $size) {
@@ -253,7 +261,7 @@ class Twig
 
     private function addPluginNamespaces(Twig_Loader_Filesystem $loader)
     {
-        $plugins = \Piwik\Plugin\Manager::getInstance()->getLoadedPluginsName();
+        $plugins = \Piwik\Plugin\Manager::getInstance()->getAllPluginsNames();
         foreach ($plugins as $name) {
             $path = sprintf("%s/plugins/%s/templates/", PIWIK_INCLUDE_PATH, $name);
             if (is_dir($path)) {

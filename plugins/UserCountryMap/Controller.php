@@ -5,8 +5,6 @@
  * @link http://piwik.org
  * @license http://www.gnu.org/licenses/gpl-3.0.html GPL v3 or later
  *
- * @category Piwik_Plugins
- * @package UserCountryMap
  */
 namespace Piwik\Plugins\UserCountryMap;
 
@@ -21,7 +19,6 @@ use Piwik\View;
 
 /**
  *
- * @package UserCountryMap
  */
 class Controller extends \Piwik\Plugin\Controller
 {
@@ -95,11 +92,7 @@ class Controller extends \Piwik\Plugin\Controller
         $view->config = Common::json_encode($config);
         $view->noData = empty($config['visitsSummary']['nb_visits']);
 
-        if ($fetch) {
-            return $view->render();
-        } else {
-            echo $view->render();
-        }
+        return $view->render();
     }
 
     /**
@@ -138,7 +131,7 @@ class Controller extends \Piwik\Plugin\Controller
         $hasGoals = !empty($goals) || $site->isEcommerceEnabled();
 
         // maximum number of visits to be displayed in the map
-        $maxVisits = Common::getRequestVar('format_limit', 100, 'int');
+        $maxVisits = Common::getRequestVar('filter_limit', 100, 'int');
 
         // some translations
         $locale = array(
@@ -189,11 +182,7 @@ class Controller extends \Piwik\Plugin\Controller
             'forceNowValue'      => Common::getRequestVar('forceNowValue', false, 'int')
         );
 
-        if ($fetch) {
-            return $view->render();
-        } else {
-            echo $view->render();
-        }
+        return $view->render();
     }
 
     private function getEnrichedRequest($params, $encode = true)

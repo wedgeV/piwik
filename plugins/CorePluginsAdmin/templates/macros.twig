@@ -13,15 +13,22 @@
             </thead>
             <tbody id="plugins">
             {% for name,plugin in pluginsHavingUpdate %}
-                <tr {% if plugin.isActivated %}class="highlighted"{% endif %}>
+                <tr {% if plugin.isActivated %}class="active-plugin"{% else %}class="inactive-plugin"{% endif %}>
                     <td class="name">
-                        {{ plugin.name }}
+                        <a href="javascript:void(0);" data-pluginName="{{ plugin.name|e('html_attr') }}">
+                            {{ plugin.name }}
+                        </a>
                     </td>
                     <td class="vers">
-                        {{ plugin.currentVersion }} => {{ plugin.latestVersion }}
+                        {% if plugin.repositoryChangelogUrl %}
+                            <a href="javascript:void(0);" title="{{ 'CorePluginsAdmin_Changelog'|translate }}" data-activePluginTab="changelog" data-pluginName="{{ plugin.name|e('html_attr') }}">{{ plugin.currentVersion }} => {{ plugin.latestVersion }}</a>
+                        {% else %}
+                            {{ plugin.currentVersion }} => {{ plugin.latestVersion }}
+                        {% endif %}
                     </td>
                     <td class="desc">
                         {{ plugin.description }}
+                        {{ _self.missingRequirementsNotice(plugin) }}
                     </td>
                     <td class="status">
                         {% if plugin.isActivated %}
@@ -31,7 +38,11 @@
                         {% endif %}
                     </td>
                     <td class="togl action-links">
-                        <a href="{{ linkTo({'action':'updatePlugin', 'pluginName': plugin.name, 'nonce': nonce}) }}">Update</a>
+                        {% if 0 == plugin.missingRequirements|length %}
+                            <a href="{{ linkTo({'action':'updatePlugin', 'pluginName': plugin.name, 'nonce': nonce}) }}">Update</a>
+                        {% else %}
+                            -
+                        {% endif %}
                     </td>
                 </tr>
             {% endfor %}
@@ -39,6 +50,17 @@
         </table>
     </div>
 
+{% endmacro %}
+
+{% macro pluginDeveloper(owner) %}
+    {% if 'piwik' == owner %}<img title="Piwik" alt="Piwik" style="padding-bottom:2px;height:11px;" src="plugins/Zeitgeist/images/logo-marketplace.png"/>{% else %}{{ owner }}{% endif %}
+{% endmacro %}
+
+{% macro featuredIcon(align='') %}
+    <img class="featuredIcon"
+         title="{{ 'CorePluginsAdmin_FeaturedPlugin'|translate }}"
+         src="plugins/CorePluginsAdmin/images/rating_important.png"
+         align="{{ align }}" />
 {% endmacro %}
 
 {% macro pluginsFilter(isTheme, isMarketplaceEnabled) %}
@@ -71,7 +93,21 @@
 
 {% endmacro %}
 
-{% macro tablePlugins(pluginsInfo, pluginNamesHavingSettings, activateNonce, deactivateNonce, uninstallNonce, isTheme) %}
+{% macro missingRequirementsNotice(plugin) %}
+    {% if plugin.missingRequirements and 0 < plugin.missingRequirements|length %}
+        {% for req in plugin.missingRequirements -%}
+            <p class="missingRequirementsNotice">
+                {% set requirement = req.requirement|capitalize %}
+                {% if 'Php' == requirement %}
+                    {% set requirement = 'PHP' %}
+                {% endif %}
+                {{ 'CorePluginsAdmin_MissingRequirementsNotice'|translate(requirement, req.actualVersion, req.requiredVersion) }}
+            </p>
+        {%- endfor %}
+    {% endif %}
+{% endmacro %}
+
+{% macro tablePlugins(pluginsInfo, pluginNamesHavingSettings, activateNonce, deactivateNonce, uninstallNonce, isTheme, marketplacePluginNames, displayAdminLinks) %}
 
 <div id="confirmUninstallPlugin" class="ui-confirm">
 
@@ -86,53 +122,87 @@
         <thead>
         <tr>
             <th>{% if isTheme %}{{ 'CorePluginsAdmin_Theme'|translate }}{% else %}{{ 'General_Plugin'|translate }}{% endif %}</th>
-            <th class="num">{{ 'CorePluginsAdmin_Version'|translate }}</th>
             <th>{{ 'General_Description'|translate }}</th>
             <th class="status">{{ 'CorePluginsAdmin_Status'|translate }}</th>
+            {% if (displayAdminLinks) %}
             <th class="action-links">{{ 'General_Action'|translate }}</th>
+            {% endif %}
         </tr>
         </thead>
         <tbody id="plugins">
         {% for name,plugin in pluginsInfo %}
+            {% set isZeitgeist = isTheme and name == 'Zeitgeist' %}
             {% if (plugin.alwaysActivated is defined and not plugin.alwaysActivated) or isTheme %}
-                <tr {% if plugin.activated %}class="highlighted"{% endif %} data-filter-status="{% if plugin.activated %}active{% else %}inactive{% endif %}" data-filter-origin="{% if plugin.isCorePlugin %}core{% else %}noncore{% endif %}">
-                    <td class="name">
-                        {% if plugin.info.homepage is defined %}
-                        <a title="{{ 'CorePluginsAdmin_PluginHomepage'|translate }}" href="{{ plugin.info.homepage }}" target="_blank">
-                            {% endif %}
+                <tr {% if plugin.activated %}class="active-plugin"{% else %}class="inactive-plugin"{% endif %} data-filter-status="{% if plugin.activated %}active{% else %}inactive{% endif %}" data-filter-origin="{% if plugin.isCorePlugin %}core{% else %}noncore{% endif %}">
+                    <td class="name" style="white-space:nowrap;">
+                        <a name="{{ name|e('html_attr') }}"></a>
+                        {% if not plugin.isCorePlugin and name in marketplacePluginNames -%}
+                            <a href="javascript:void(0);"
+                               data-pluginName="{{ name|e('html_attr') }}"
+                               >{{ name }}</a>
+                        {%- else %}
                             {{ name }}
-                            {% if plugin.info.homepage is defined %}</a>{% endif %}
+                        {% endif %}
+                        <span class="plugin-version" {% if plugin.isCorePlugin %}title="{{ 'CorePluginsAdmin_CorePluginTooltip'|translate }}"{% endif %}>({% if plugin.isCorePlugin %}{{ 'CorePluginsAdmin_OriginCore'|translate }}{% else %}v{{ plugin.info.version }}{% endif %})</span>
 
                         {% if name in pluginNamesHavingSettings %}
                             <br /><br />
                             <a href="{{ linkTo({'module':'CoreAdminHome', 'action': 'pluginSettings'}) }}#{{ name|e('html_attr') }}" class="settingsLink">{{ 'General_Settings'|translate }}</a>
                         {% endif %}
                     </td>
-                    <td class="vers">{{ plugin.info.version }}</td>
                     <td class="desc">
-                        {{ plugin.info.description|raw|nl2br }}
+                        <div class="plugin-desc-text">
+                            {{ plugin.info.description|raw|nl2br }}
+                            {% if plugin.info.homepage|default is not empty and plugin.info.homepage not in [
+                                  'http://piwik.org', 'http://www.piwik.org', 'http://piwik.org/', 'http://www.piwik.org/'
+                            ] %}
+                            <span class="plugin-homepage">
+                                <a href="{{ plugin.info.homepage }}">({{ 'CorePluginsAdmin_PluginHomepage'|translate|replace({' ': '&nbsp;'})|raw }})</a>
+                            </span>
+                            {% endif %}
+                        </div>
                         {% if plugin.info.license is defined %}
-                            &nbsp;({% if plugin.info.license_homepage is defined %}<a title="{{ 'CorePluginsAdmin_LicenseHomepage'|translate }}" target="_blank" href="{{ plugin.info.license_homepage }}">{% endif %}{{ plugin.info.license }}{% if plugin.info.license_homepage is defined %}</a>){% endif %}
+                        <div class="plugin-license">
+                            {% if plugin.info.license_homepage is defined %}<a title="{{ 'CorePluginsAdmin_LicenseHomepage'|translate }}" target="_blank" href="{{ plugin.info.license_homepage }}">{% endif %}{{ plugin.info.license }}{% if plugin.info.license_homepage is defined %}</a>{% endif %}
+                        </div>
                         {% endif %}
-                        {% if plugin.info.author is defined %}
-                            &nbsp; <cite>By
-                            {% if plugin.info.author_homepage is defined %}
-                            <a title="{{ 'CorePluginsAdmin_AuthorHomepage'|translate }}" href="{{ plugin.info.author_homepage }}" target="_blank">
-                                {% endif %}{{ plugin.info.author }}{% if plugin.info.author_homepage is defined -%}</a>{% endif -%}
-                            .</cite>
+                        {% if plugin.info.authors is defined %}
+                        <div class="plugin-author">
+                            <cite>By
+                            {% if plugin.info.authors is defined -%}
+                            {% spaceless %}
+                            {% for author in plugin.info.authors if author.name %}
+                                {% if author.homepage is defined %}
+                                    <a title="{{ 'CorePluginsAdmin_AuthorHomepage'|translate }}" href="{{ author.homepage }}" target="_blank">{{ author.name }}</a>
+                                {% else %}
+                                    {{ author.name }}
+                                {% endif %}
+                                {% if loop.index < plugin.info.authors|length %}
+                                        ,
+                                    {% endif %}
+                            {% endfor %}
+                            {% endspaceless %}
+                            {%- endif %}.</cite>
+                        </div>
                         {% endif %}
                     </td>
-                    <td class="status">
+                    <td class="status" {% if isZeitgeist %}style="border-left-width:0px;"{% endif %}>
+                        {% if not isZeitgeist -%}
+
                         {% if plugin.activated %}
                             {{ 'CorePluginsAdmin_Active'|translate }}
                         {% else %}
-                            {{ 'CorePluginsAdmin_Inactive'|translate }} <br/>
-                            - {% if plugin.uninstallable %}<a data-pluginName="{{ name|escape('html_attr') }}" class="uninstall" href='index.php?module=CorePluginsAdmin&action=uninstall&pluginName={{ name }}&nonce={{
-                        uninstallNonce }}'>uninstall</a>{% endif %}
+                            {{ 'CorePluginsAdmin_Inactive'|translate }}
+                            {% if plugin.uninstallable and displayAdminLinks %} <br/> - <a data-pluginName="{{ name|escape('html_attr') }}" class="uninstall" href='index.php?module=CorePluginsAdmin&action=uninstall&pluginName={{ name }}&nonce={{ uninstallNonce }}'>{{ 'CorePluginsAdmin_ActionUninstall'|translate }}</a>{% endif %}
                         {% endif %}
+
+                        {%- endif %}
                     </td>
 
-                    <td class="togl action-links">
+                    {% if displayAdminLinks %}
+                    <td class="togl action-links" {% if isZeitgeist %}style="border-left-width:0px;"{% endif %}>
+                        {% if not isZeitgeist -%}
+
                         {% if plugin.invalid is defined or plugin.alwaysActivated %}
                             -
                         {% else %}
@@ -142,7 +212,10 @@
                                 <a href='index.php?module=CorePluginsAdmin&action=activate&pluginName={{ name }}&nonce={{  activateNonce }}'>{{ 'CorePluginsAdmin_Activate'|translate }}</a>
                             {% endif %}
                         {% endif %}
+
+                        {%- endif %}
                     </td>
+                    {% endif %}
                 </tr>
             {% endif %}
         {% endfor %}

@@ -5,16 +5,14 @@
  * @link http://piwik.org
  * @license http://www.gnu.org/licenses/gpl-3.0.html GPL v3 or later
  *
- * @category Piwik
- * @package Piwik
  */
 namespace Piwik\DataTable\Filter;
 
 use Piwik\DataTable;
-use Piwik\DataTable\Filter;
+use Piwik\DataTable\BaseFilter;
 
 /**
- * Executes a callback for each row of a DataTable and adds the result to the
+ * Executes a callback for each row of a {@link DataTable} and adds the result to the
  * row as a metadata value. Only metadata values are passed to the callback.
  *
  * **Basic usage example**
@@ -22,11 +20,9 @@ use Piwik\DataTable\Filter;
  *     // add a logo metadata based on the url metadata
  *     $dataTable->filter('MetadataCallbackAddMetadata', array('url', 'logo', 'Piwik\Plugins\MyPlugin\getLogoFromUrl'));
  *
- * @package Piwik
- * @subpackage DataTable
  * @api
  */
-class MetadataCallbackAddMetadata extends Filter
+class MetadataCallbackAddMetadata extends BaseFilter
 {
     private $metadataToRead;
     private $functionToApply;
@@ -60,7 +56,7 @@ class MetadataCallbackAddMetadata extends Filter
     }
 
     /**
-     * See [MetadataCallbackAddMetadata](#).
+     * See {@link MetadataCallbackAddMetadata}.
      * 
      * @param DataTable $table
      */

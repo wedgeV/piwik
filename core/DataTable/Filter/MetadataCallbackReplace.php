@@ -5,8 +5,6 @@
  * @link http://piwik.org
  * @license http://www.gnu.org/licenses/gpl-3.0.html GPL v3 or later
  *
- * @category Piwik
- * @package Piwik
  */
 namespace Piwik\DataTable\Filter;
 
@@ -14,8 +12,8 @@ use Piwik\DataTable;
 use Piwik\DataTable\Row;
 
 /**
- * Execute a callback for each row of a DataTable using certain column values and metadata
- * and replaces row metadata with the result.
+ * Execute a callback for each row of a {@link DataTable} passing certain column values and metadata
+ * as metadata, and replaces row metadata with the callback result.
  * 
  * **Basic usage example**
  * 
@@ -23,8 +21,6 @@ use Piwik\DataTable\Row;
  *         return $url . '#index';
  *     }));
  *
- * @package Piwik
- * @subpackage DataTable
  * @api
  */
 class MetadataCallbackReplace extends ColumnCallbackReplace

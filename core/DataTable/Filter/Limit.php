@@ -5,27 +5,23 @@
  * @link http://piwik.org
  * @license http://www.gnu.org/licenses/gpl-3.0.html GPL v3 or later
  *
- * @category Piwik
- * @package Piwik
  */
 namespace Piwik\DataTable\Filter;
 
 use Piwik\DataTable;
-use Piwik\DataTable\Filter;
+use Piwik\DataTable\BaseFilter;
 
 /**
- * Delete all rows from the table that are not in the given offset -> offset+limit range.
+ * Delete all rows from the table that are not in the given [offset, offset+limit) range.
  * 
  * **Basic example usage**
  * 
  *     // delete all rows from 5 -> 15
  *     $dataTable->filter('Limit', array(5, 10));
  *
- * @package Piwik
- * @subpackage DataTable
  * @api
  */
-class Limit extends Filter
+class Limit extends BaseFilter
 {
     /**
      * Constructor.
@@ -45,7 +41,7 @@ class Limit extends Filter
     }
 
     /**
-     * See [Limit](#).
+     * See {@link Limit}.
      *
      * @param DataTable $table
      */

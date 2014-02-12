@@ -23,7 +23,6 @@ require_once PIWIK_INCLUDE_PATH . '/tests/PHPUnit/Fixtures/ManySitesImportedLogs
 class Test_Piwik_Fixture_ManySitesImportedLogsWithXssAttempts extends Test_Piwik_Fixture_ManySitesImportedLogs
 {
     public $now = null;
-    public $visitorIdForDeterministicDate = null;
 
     public function __construct()
     {
@@ -36,10 +35,6 @@ class Test_Piwik_Fixture_ManySitesImportedLogsWithXssAttempts extends Test_Piwik
 
         $this->trackVisitsForRealtimeMap(Date::factory('2012-08-11 11:22:33'), $createSeperateVisitors = false);
 
-        $this->visitorIdForDeterministicDate = bin2hex(Db::fetchOne(
-            "SELECT idvisitor FROM " . Common::prefixTable('log_visit')
-          . " WHERE idsite = 2 AND location_latitude IS NOT NULL LIMIT 1"));
-
         $this->setupDashboards();
         $this->setupXssSegment();
         $this->addAnnotations();
@@ -49,20 +44,27 @@ class Test_Piwik_Fixture_ManySitesImportedLogsWithXssAttempts extends Test_Piwik
     public function setUpWebsitesAndGoals()
     {
         // for conversion testing
-        $siteName = self::makeXssContent("site name", $sanitize = true);
-        self::createWebsite($this->dateTime, $ecommerce = 1, $siteName);
-        APIGoals::getInstance()->addGoal(
-            $this->idSite, self::makeXssContent("goal name"), 'url', 'http', 'contains', false, 5);
-        
-        self::createWebsite($this->dateTime, $ecommerce = 0, $siteName = 'Piwik test two',
-            $siteUrl = 'http://example-site-two.com');
+        if (!self::siteCreated($idSite = 1)) {
+            $siteName = self::makeXssContent("site name", $sanitize = true);
+            self::createWebsite($this->dateTime, $ecommerce = 1, $siteName);
+        }
+
+        if (!self::goalExists($idSite = 1, $idGoal = 1)) {
+            APIGoals::getInstance()->addGoal(
+                $this->idSite, self::makeXssContent("goal name"), 'url', 'http', 'contains', false, 5);
+        }
+
+        if (!self::siteCreated($idSite = 2)) {
+            self::createWebsite($this->dateTime, $ecommerce = 0, $siteName = 'Piwik test two',
+                $siteUrl = 'http://example-site-two.com');
+        }
     }
     
     /** Creates two dashboards that split the widgets up into different groups. */
     public function setupDashboards()
     {
         $dashboardColumnCount = 3;
-        $dashboardCount = 3;
+        $dashboardCount = 4;
         
         $layout = array();
         for ($j = 0; $j != $dashboardColumnCount; ++$j) {
@@ -93,16 +95,23 @@ class Test_Piwik_Fixture_ManySitesImportedLogsWithXssAttempts extends Test_Piwik
             if ($widget['uniqueId'] == 'widgetSEOgetRank'
                 || $widget['uniqueId'] == 'widgetReferrersgetKeywordsForPage'
                 || $widget['uniqueId'] == 'widgetLivegetVisitorProfilePopup'
+                || $widget['uniqueId'] == 'widgetActionsgetPageTitles'
                 || strpos($widget['uniqueId'], 'widgetExample') === 0
             ) {
                 continue;
             }
             
             $dashboard = ($dashboard + 1) % $dashboardCount;
-            $groupedWidgets[$dashboard][] = array(
+
+            $widgetEntry = array(
                 'uniqueId' => $widget['uniqueId'],
                 'parameters' => $widget['parameters']
             );
+            
+            // dashboard images must have height of less than 4000px to avoid odd discoloration of last line of image
+            $widgetEntry['parameters']['filter_limit'] = 5;
+
+            $groupedWidgets[$dashboard][] = $widgetEntry;
         }
         
         // distribute widgets in each dashboard
@@ -116,7 +125,11 @@ class Test_Piwik_Fixture_ManySitesImportedLogsWithXssAttempts extends Test_Piwik
         }
 
         foreach ($dashboards as $id => $layout) {
-            $_GET['name'] = self::makeXssContent('dashboard name' . $id);
+            if ($id == 0) {
+                $_GET['name'] = self::makeXssContent('dashboard name' . $id);
+            } else {
+                $_GET['name'] = 'dashboard name' . $id;
+            }
             $_GET['layout'] = Common::json_encode($layout);
             $_GET['idDashboard'] = $id + 1;
             FrontController::getInstance()->fetchDispatch('Dashboard', 'saveLayout');
@@ -137,7 +150,7 @@ class Test_Piwik_Fixture_ManySitesImportedLogsWithXssAttempts extends Test_Piwik
 
         $_GET['name'] = 'D4';
         $_GET['layout'] = Common::json_encode($dashboard);
-        $_GET['idDashboard'] = 4;
+        $_GET['idDashboard'] = count($dashboards) + 1;
         $_GET['idSite'] = 2;
         FrontController::getInstance()->fetchDispatch('Dashboard', 'saveLayout');
         
@@ -150,6 +163,12 @@ class Test_Piwik_Fixture_ManySitesImportedLogsWithXssAttempts extends Test_Piwik
         $segmentDefinition = "browserCode==FF";
         APISegmentEditor::getInstance()->add(
             $segmentName, $segmentDefinition, $this->idSite, $autoArchive = true, $enabledAllUsers = true);
+
+        // create two more segments
+        APISegmentEditor::getInstance()->add(
+            "From Europe", "continentCode==eur", $this->idSite, $autoArchive = false, $enabledAllUsers = true);
+        APISegmentEditor::getInstance()->add(
+            "Multiple actions", "actions>=2", $this->idSite, $autoArchive = false, $enabledAllUsers = true);
     }
     
     public function addAnnotations()

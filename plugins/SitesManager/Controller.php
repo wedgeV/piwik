@@ -5,8 +5,6 @@
  * @link http://piwik.org
  * @license http://www.gnu.org/licenses/gpl-3.0.html GPL v3 or later
  *
- * @category Piwik_Plugins
- * @package SitesManager
  */
 namespace Piwik\Plugins\SitesManager;
 
@@ -25,7 +23,6 @@ use Piwik\View;
 
 /**
  *
- * @package SitesManager
  */
 class Controller extends \Piwik\Plugin\ControllerAdmin
 {
@@ -36,13 +33,16 @@ class Controller extends \Piwik\Plugin\ControllerAdmin
     {
         $view = new View('@SitesManager/index');
 
-        if (Piwik::isUserIsSuperUser()) {
-            $sites = API::getInstance()->getAllSites();
-            Site::setSites($sites);
-            $sites = array_values($sites);
+        Site::clearCache();
+        if (Piwik::hasUserSuperUserAccess()) {
+            $sitesRaw = API::getInstance()->getAllSites();
         } else {
-            $sites = API::getInstance()->getSitesWithAdminAccess();
-            Site::setSitesFromArray($sites);
+            $sitesRaw = API::getInstance()->getSitesWithAdminAccess();
+        }
+        // Gets sites after Site.setSite hook was called
+        $sites = array_values( Site::getSites() );
+        if(count($sites) != count($sitesRaw)) {
+            throw new Exception("One or more website are missing or invalid.");
         }
 
         foreach ($sites as &$site) {
@@ -84,7 +84,7 @@ class Controller extends \Piwik\Plugin\ControllerAdmin
         $view->showAddSite = (boolean)Common::getRequestVar('showaddsite', false);
 
         $this->setBasicVariablesView($view);
-        echo $view->render();
+        return $view->render();
     }
 
     /**
@@ -120,7 +120,8 @@ class Controller extends \Piwik\Plugin\ControllerAdmin
         } catch (Exception $e) {
             $toReturn = $response->getResponseException($e);
         }
-        echo $toReturn;
+
+        return $toReturn;
     }
 
     /**
@@ -138,7 +139,8 @@ class Controller extends \Piwik\Plugin\ControllerAdmin
         $site = new Site($idSite);
         $view->displaySiteName = $site->getName();
         $view->jsTag = $jsTag;
-        echo $view->render();
+
+        return $view->render();
     }
 
     /**
@@ -150,25 +152,7 @@ class Controller extends \Piwik\Plugin\ControllerAdmin
         $filename = 'PiwikTracker.php';
         header('Content-type: text/php');
         header('Content-Disposition: attachment; filename="' . $filename . '"');
-        echo file_get_contents($path . $filename);
-    }
-
-    /**
-     * Used to generate the doc at http://piwik.org/docs/tracking-api/
-     */
-    function displayAlternativeTagsHelp()
-    {
-        $view = new View('@SitesManager/displayAlternativeTagsHelp');
-        $view->idSite = Common::getRequestVar('idSite');
-        $url = Common::getRequestVar('piwikUrl', '', 'string');
-        if (empty($url)
-            || !UrlHelper::isLookLikeUrl($url)
-        ) {
-            $url = $view->piwikUrl;
-        }
-        $view->piwikUrlRequest = $url;
-        $view->calledExternally = true;
-        echo $view->render();
+        return file_get_contents($path . $filename);
     }
 
     function getSitesForAutocompleter()
@@ -185,16 +169,17 @@ class Controller extends \Piwik\Plugin\ControllerAdmin
                 $pattern = str_replace('/', '\\/', $pattern);
             }
             foreach ($sites as $s) {
-                $hl_name = $s['name'];
+                $siteName = Site::getNameFor($s['idsite']);
+                $label = $siteName;
                 if (strlen($pattern) > 0) {
-                    @preg_match_all("/$pattern+/i", $hl_name, $matches);
+                    @preg_match_all("/$pattern+/i", $label, $matches);
                     if (is_array($matches[0]) && count($matches[0]) >= 1) {
                         foreach ($matches[0] as $match) {
-                            $hl_name = str_replace($match, '<span class="autocompleteMatched">' . $match . '</span>', $s['name']);
+                            $label = str_replace($match, '<span class="autocompleteMatched">' . $match . '</span>', $siteName);
                         }
                     }
                 }
-                $results[] = array('label' => $hl_name, 'id' => $s['idsite'], 'name' => $s['name']);
+                $results[] = array('label' => $label, 'id' => $s['idsite'], 'name' => $siteName);
             }
         }
 

@@ -109,7 +109,7 @@
         {{ 'SitesManager_YouCurrentlyHaveAccessToNWebsites'|translate("<strong>" ~ adminSitesCount ~ "</strong>")|raw }}
         {% if isSuperUser %}
             <br/>
-            {{ 'SitesManager_SuperUserCan'|translate("<a href='#globalSettings'>","</a>")|raw }}
+            {{ 'SitesManager_SuperUserAccessCan'|translate("<a href='#globalSettings'>","</a>")|raw }}
         {% endif %}
     </p>
     {{ ajax.errorDiv() }}
@@ -205,14 +205,14 @@
                     <span id="row{{ site.idsite }}" class='editSite link_but'>
                         <img src='plugins/Zeitgeist/images/ico_edit.png' title="{{ 'General_Edit'|translate }}"
                              border="0"/>
-                        {{ 'General_Edit'|translate }}
+                        <span>{{ 'General_Edit'|translate }}</span>
                     </span>
                         </td>
                         <td>
                     <span id="row{{ site.idsite }}" class="deleteSite link_but">
                         <img src='plugins/Zeitgeist/images/ico_delete.png' title="{{ 'General_Delete'|translate }}"
                              border="0"/>
-                        {{ 'General_Delete'|translate }}
+                        <span>{{ 'General_Delete'|translate }}</span>
                     </span>
                         </td>
                         <td>

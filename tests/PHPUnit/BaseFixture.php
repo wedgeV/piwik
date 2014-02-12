@@ -39,6 +39,7 @@ abstract class Test_Piwik_BaseFixture extends PHPUnit_Framework_Assert
     const IMAGES_GENERATED_ONLY_FOR_OS = 'linux';
     const IMAGES_GENERATED_FOR_PHP = '5.5';
     const IMAGES_GENERATED_FOR_GD = '2.1.1';
+    const DEFAULT_SITE_NAME = 'Piwik test';
 
     /** Adds data to Piwik. Creates sites, tracks visits, imports log files, etc. */
     public abstract function setUp();
@@ -60,10 +61,13 @@ abstract class Test_Piwik_BaseFixture extends PHPUnit_Framework_Assert
      * @param null|string $searchCategoryParameters
      * @return int    idSite of website created
      */
-    public static function createWebsite($dateTime, $ecommerce = 0, $siteName = 'Piwik test', $siteUrl = false,
+    public static function createWebsite($dateTime, $ecommerce = 0, $siteName = false, $siteUrl = false,
                                          $siteSearch = 1, $searchKeywordParameters = null,
-                                         $searchCategoryParameters = null)
+                                         $searchCategoryParameters = null, $timezone = null)
     {
+        if($siteName === false) {
+            $siteName = self::DEFAULT_SITE_NAME;
+        }
         $idSite = APISitesManager::getInstance()->addSite(
             $siteName,
             $siteUrl === false ? "http://piwik.net/" : $siteUrl,
@@ -71,7 +75,7 @@ abstract class Test_Piwik_BaseFixture extends PHPUnit_Framework_Assert
             $siteSearch, $searchKeywordParameters, $searchCategoryParameters,
             $ips = null,
             $excludedQueryParameters = null,
-            $timezone = null,
+            $timezone,
             $currency = null
         );
 
@@ -189,6 +193,7 @@ abstract class Test_Piwik_BaseFixture extends PHPUnit_Framework_Assert
         if(!isset($data['status'])) {
             throw new Exception("Returned data didn't have a status: " . var_export($data,true));
         }
+
         self::assertArrayHasKey('status', $data);
         self::assertEquals('success', $data['status']);
     }
@@ -204,17 +209,37 @@ abstract class Test_Piwik_BaseFixture extends PHPUnit_Framework_Assert
     }
 
     /**
-     * Returns the super user token auth that can be used in tests. Can be used to
+     * Returns the Super User token auth that can be used in tests. Can be used to
      * do bulk tracking.
      *
      * @return string
      */
     public static function getTokenAuth()
     {
-        return APIUsersManager::getInstance()->getTokenAuth(
-            Config::getInstance()->superuser['login'],
-            Config::getInstance()->superuser['password']
-        );
+        $user = self::createSuperUser();
+
+        return $user['token_auth'];
+    }
+
+    public static function createSuperUser()
+    {
+        $login = 'admin';
+        $password = '098f6bcd4621d373cade4e832627b4f6';
+
+        $token = APIUsersManager::getInstance()->getTokenAuth($login, $password);
+
+        $model = new \Piwik\Plugins\UsersManager\Model();
+        $user  = $model->getUserByTokenAuth($token);
+
+        if (empty($user)) {
+            $model->addUser($login, $password, 'hello@example.org', $login, $token, Date::now()->getDatetime());
+        }
+
+        if (empty($user['superuser_access'])) {
+            $model->setSuperUserAccess($login, true);
+        }
+
+        return $model->getUserByTokenAuth($token);
     }
 
     /**
@@ -395,5 +420,15 @@ abstract class Test_Piwik_BaseFixture extends PHPUnit_Framework_Assert
         }
 
         return $output;
+    }
+
+    public static function siteCreated($idSite)
+    {
+        return Db::fetchOne("SELECT COUNT(*) FROM " . Common::prefixTable('site') . " WHERE idsite = ?", array($idSite)) != 0;
+    }
+
+    public static function goalExists($idSite, $idGoal)
+    {
+        return Db::fetchOne("SELECT COUNT(*) FROM " . Common::prefixTable('goal') . " WHERE idgoal = ? AND idsite = ?", array($idGoal, $idSite)) != 0;
     }
 }
