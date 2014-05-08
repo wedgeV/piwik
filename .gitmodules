@@ -30,3 +30,7 @@
 	path = plugins/LoginHttpAuth
 	url = https://github.com/piwik/plugin-LoginHttpAuth.git
     branch = master
+[submodule "plugins/MobileAnalytics"]
+	path = plugins/MobileAnalytics
+	url = git@git.nyc-priv.kargo.com:piwik-mobileanalytics
+	branch = piwik-2.x
